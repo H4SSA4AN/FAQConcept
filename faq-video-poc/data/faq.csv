@@ -1,0 +1,11 @@
+id,question,answer,category
+1,"How do I reset my password?","To reset your password, click on 'Forgot Password' on the login page and follow the instructions sent to your email.","Account Management"
+2,"What payment methods do you accept?","We accept credit cards (Visa, MasterCard, American Express), PayPal, and bank transfers.","Billing"
+3,"How can I contact customer support?","You can contact our support team via email at support@example.com, through the live chat on our website, or by calling 1-800-123-4567.","Support"
+4,"Is my data secure?","Yes, we use industry-standard encryption and security measures to protect your personal information and data.","Security"
+5,"How do I cancel my subscription?","You can cancel your subscription from your account settings or by contacting our support team.","Account Management"
+6,"What are your business hours?","Our customer support is available Monday through Friday, 9 AM to 6 PM EST.","General"
+7,"Do you offer refunds?","We offer refunds within 30 days of purchase for eligible products and services. Please check our refund policy for details.","Billing"
+8,"How do I update my billing information?","You can update your billing information in your account settings under the 'Billing' section.","Billing"
+9,"Can I change my plan?","Yes, you can upgrade or downgrade your plan at any time from your account dashboard.","Account Management"
+10,"What file formats do you support?","We support PDF, DOC, DOCX, TXT, and image formats (JPG, PNG, GIF).","Technical"

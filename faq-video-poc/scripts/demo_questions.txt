@@ -1,0 +1,24 @@
+# Demo Questions for FAQ Video POC
+
+How do I reset my password?
+What payment methods do you accept?
+How can I contact customer support?
+Is my data secure?
+How do I cancel my subscription?
+What are your business hours?
+Do you offer refunds?
+How do I update my billing information?
+Can I change my plan?
+What file formats do you support?
+
+# Additional test questions
+How do I create an account?
+What is your return policy?
+Do you provide training materials?
+How do I export my data?
+What languages do you support?
+How do I upgrade my storage?
+Do you have an API?
+What are the system requirements?
+How do I report a bug?
+Do you offer phone support?
