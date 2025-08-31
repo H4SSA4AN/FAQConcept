@@ -11,7 +11,6 @@ from typing import Optional
 from .settings import settings
 from .search import FAQSearch
 from .index_chroma import ChromaIndexer
-from .index_qdrant import QdrantIndexer
 
 
 @click.group()
@@ -37,17 +36,12 @@ def cli(ctx, log_level):
               help='Maximum number of results to return')
 @click.option('--threshold', '-t', default=settings.app.similarity_threshold,
               help='Minimum similarity threshold')
-@click.option('--source', type=click.Choice(['chroma', 'qdrant', 'both']),
-              default='both', help='Vector database to search')
 @click.pass_context
-def search(ctx, query, limit, threshold, source):
+def search(ctx, query, limit, threshold):
     """Search for FAQs matching the query."""
     try:
         # Initialize search engine
-        use_chroma = source in ['chroma', 'both']
-        use_qdrant = source in ['qdrant', 'both']
-
-        search_engine = FAQSearch(use_chroma=use_chroma, use_qdrant=use_qdrant)
+        search_engine = FAQSearch(use_chroma=True)
 
         # Perform search
         results = search_engine.search(query, limit=limit, threshold=threshold)
@@ -73,12 +67,10 @@ def search(ctx, query, limit, threshold, source):
 
 
 @cli.command()
-@click.option('--source', type=click.Choice(['chroma', 'qdrant', 'both']),
-              default='both', help='Database to seed')
 @click.option('--csv-path', help='Path to FAQ CSV file')
 @click.pass_context
-def seed(ctx, source, csv_path):
-    """Seed the vector databases with FAQ data."""
+def seed(ctx, csv_path):
+    """Seed the Chroma database with FAQ data."""
     try:
         if csv_path is None:
             csv_path = str(settings.faq_data_path)
@@ -93,20 +85,11 @@ def seed(ctx, source, csv_path):
         faqs_df = pd.read_csv(csv_path)
         click.echo(f"Loaded {len(faqs_df)} FAQs")
 
-        # Seed databases
-        if source in ['chroma', 'both']:
-            click.echo("Seeding Chroma database...")
-            chroma_indexer = ChromaIndexer()
-            chroma_indexer.add_faqs(faqs_df)
-            click.echo("✓ Chroma database seeded successfully")
-
-        if source in ['qdrant', 'both']:
-            click.echo("Seeding Qdrant database...")
-            qdrant_indexer = QdrantIndexer()
-            qdrant_indexer.add_faqs(faqs_df)
-            click.echo("✓ Qdrant database seeded successfully")
-
-        click.echo("\n✓ All databases seeded successfully!")
+        # Seed Chroma database
+        click.echo("Seeding Chroma database...")
+        chroma_indexer = ChromaIndexer()
+        chroma_indexer.add_faqs(faqs_df)
+        click.echo("✓ Chroma database seeded successfully")
 
     except Exception as e:
         logger.error(f"Seeding failed: {e}")
@@ -115,25 +98,14 @@ def seed(ctx, source, csv_path):
 
 
 @cli.command()
-@click.option('--source', type=click.Choice(['chroma', 'qdrant', 'both']),
-              default='both', help='Database to clear')
 @click.pass_context
-def clear(ctx, source):
-    """Clear the vector databases."""
+def clear(ctx):
+    """Clear the Chroma database."""
     try:
-        if source in ['chroma', 'both']:
-            click.echo("Clearing Chroma database...")
-            chroma_indexer = ChromaIndexer()
-            chroma_indexer.delete_collection()
-            click.echo("✓ Chroma database cleared")
-
-        if source in ['qdrant', 'both']:
-            click.echo("Clearing Qdrant database...")
-            qdrant_indexer = QdrantIndexer()
-            qdrant_indexer.delete_collection()
-            click.echo("✓ Qdrant database cleared")
-
-        click.echo("\n✓ All databases cleared successfully!")
+        click.echo("Clearing Chroma database...")
+        chroma_indexer = ChromaIndexer()
+        chroma_indexer.delete_collection()
+        click.echo("✓ Chroma database cleared")
 
     except Exception as e:
         logger.error(f"Clearing failed: {e}")
@@ -142,17 +114,11 @@ def clear(ctx, source):
 
 
 @cli.command()
-@click.option('--source', type=click.Choice(['chroma', 'qdrant', 'both']),
-              default='both', help='Database to get stats for')
 @click.pass_context
-def stats(ctx, source):
-    """Show database statistics."""
+def stats(ctx):
+    """Show Chroma database statistics."""
     try:
-        search_engine = FAQSearch(
-            use_chroma=source in ['chroma', 'both'],
-            use_qdrant=source in ['qdrant', 'both']
-        )
-
+        search_engine = FAQSearch(use_chroma=True)
         stats = search_engine.get_stats()
 
         click.echo("\nDatabase Statistics:\n")
@@ -163,15 +129,6 @@ def stats(ctx, source):
             click.echo(f"  Collection: {chroma_stats['name']}")
             click.echo(f"  Documents: {chroma_stats['count']}")
             click.echo(f"  Embedding Dimension: {chroma_stats['embedding_dimension']}")
-            click.echo()
-
-        if 'qdrant' in stats:
-            qdrant_stats = stats['qdrant']
-            click.echo("Qdrant Database:")
-            click.echo(f"  Collection: {qdrant_stats['name']}")
-            click.echo(f"  Vectors: {qdrant_stats.get('vectors_count', 'N/A')}")
-            click.echo(f"  Points: {qdrant_stats.get('points_count', 'N/A')}")
-            click.echo(f"  Status: {qdrant_stats.get('status', 'N/A')}")
             click.echo()
 
     except Exception as e:

@@ -1,0 +1,49 @@
+Example Interactive FAQ Session
+=================================
+
+🤖 Interactive FAQ Search
+==================================================
+Using model: sentence-transformers/multi-qa-MiniLM-L6-cos-v1
+Similarity threshold: 0.7
+Type 'quit', 'exit', or 'q' to end the session.
+
+Initializing search engine...
+✅ Search engine initialized successfully!
+
+❓ Ask a question: How do I reset my password?
+🔍 Searching for: 'How do I reset my password?'
+----------------------------------------
+📋 Found 3 relevant answer(s):
+
+1. 📖 Question: How do I reset my password?
+   💡 Answer: To reset your password, click on "Forgot Password" on the login page and follow the instructions sent to your email.
+   🏷️  Category: Account
+   🔢 Score: 0.956
+
+2. 📖 Question: What if I forgot my username?
+   💡 Answer: If you forgot your username, you can retrieve it by providing your registered email address on the login page.
+   🏷️  Category: Account
+   🔢 Score: 0.723
+
+3. 📖 Question: How do I change my email address?
+   💡 Answer: You can change your email address in your account settings under the "Profile" section.
+   🏷️  Category: Account
+   🔢 Score: 0.689
+
+❓ Ask a question: What are your business hours?
+🔍 Searching for: 'What are your business hours?'
+----------------------------------------
+📋 Found 2 relevant answer(s):
+
+1. 📖 Question: What are your business hours?
+   💡 Answer: Our customer support is available Monday through Friday, 9 AM to 6 PM EST.
+   🏷️  Category: General
+   🔢 Score: 0.942
+
+2. 📖 Question: Do you offer 24/7 support?
+   💡 Answer: We offer 24/7 self-service support through our knowledge base, but live chat is available during business hours.
+   🏷️  Category: Support
+   🔢 Score: 0.876
+
+❓ Ask a question: quit
+👋 Goodbye!

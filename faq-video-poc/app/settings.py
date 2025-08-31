@@ -17,15 +17,13 @@ class DatabaseConfig:
     """Database configuration settings."""
     chroma_host: str = "localhost"
     chroma_port: int = 8000
-    qdrant_host: str = "localhost"
-    qdrant_port: int = 6333
     chroma_persist_dir: str = "chroma_db"
 
 
 @dataclass
 class EmbeddingConfig:
     """Embedding model configuration."""
-    model_name: str = "sentence-transformers/all-MiniLM-L6-v2"
+    model_name: str = "sentence-transformers/multi-qa-MiniLM-L6-cos-v1"
     dimension: int = 384
     max_seq_length: int = 512
 
@@ -65,13 +63,11 @@ class Settings:
         self.database = DatabaseConfig(
             chroma_host=os.getenv("CHROMA_HOST", "localhost"),
             chroma_port=int(os.getenv("CHROMA_PORT", "8000")),
-            qdrant_host=os.getenv("QDRANT_HOST", "localhost"),
-            qdrant_port=int(os.getenv("QDRANT_PORT", "6333")),
             chroma_persist_dir=os.getenv("CHROMA_PERSIST_DIR", "chroma_db")
         )
 
         self.embedding = EmbeddingConfig(
-            model_name=os.getenv("EMBEDDING_MODEL", "sentence-transformers/all-MiniLM-L6-v2"),
+            model_name=os.getenv("EMBEDDING_MODEL", "sentence-transformers/multi-qa-MiniLM-L6-cos-v1"),
             dimension=int(os.getenv("EMBEDDING_DIMENSION", "384")),
             max_seq_length=int(os.getenv("MAX_SEQ_LENGTH", "512"))
         )

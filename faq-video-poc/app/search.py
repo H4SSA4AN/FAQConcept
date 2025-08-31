@@ -10,7 +10,6 @@ from loguru import logger
 from .settings import settings
 from .embed import TextEmbedder
 from .index_chroma import ChromaIndexer
-from .index_qdrant import QdrantIndexer
 
 
 @dataclass
@@ -20,28 +19,25 @@ class SearchResult:
     answer: str
     category: str
     score: float
-    source: str  # 'chroma' or 'qdrant'
+    source: str  # 'chroma'
     metadata: Optional[Dict[str, Any]] = None
 
 
 class FAQSearch:
     """Main FAQ search engine supporting multiple vector databases."""
 
-    def __init__(self, use_chroma: bool = True, use_qdrant: bool = True):
+    def __init__(self, use_chroma: bool = True):
         """
         Initialize the FAQ search engine.
 
         Args:
             use_chroma: Whether to use Chroma database
-            use_qdrant: Whether to use Qdrant database
         """
         self.use_chroma = use_chroma
-        self.use_qdrant = use_qdrant
         self.embedder = TextEmbedder()
 
-        # Initialize indexers
+        # Initialize indexer
         self.chroma_indexer = None
-        self.qdrant_indexer = None
 
         if self.use_chroma:
             try:
@@ -51,16 +47,8 @@ class FAQSearch:
                 logger.warning(f"Failed to initialize Chroma indexer: {e}")
                 self.use_chroma = False
 
-        if self.use_qdrant:
-            try:
-                self.qdrant_indexer = QdrantIndexer()
-                logger.info("Qdrant indexer initialized")
-            except Exception as e:
-                logger.warning(f"Failed to initialize Qdrant indexer: {e}")
-                self.use_qdrant = False
-
-        if not self.use_chroma and not self.use_qdrant:
-            raise RuntimeError("At least one vector database must be available")
+        if not self.use_chroma:
+            raise RuntimeError("Chroma database must be available")
 
     def search(self, query: str, limit: int = None, threshold: float = None) -> List[SearchResult]:
         """
@@ -91,14 +79,6 @@ class FAQSearch:
                 all_results.extend(chroma_results)
             except Exception as e:
                 logger.error(f"Chroma search failed: {e}")
-
-        # Search Qdrant
-        if self.use_qdrant and self.qdrant_indexer:
-            try:
-                qdrant_results = self._search_qdrant(query, limit)
-                all_results.extend(qdrant_results)
-            except Exception as e:
-                logger.error(f"Qdrant search failed: {e}")
 
         # Filter by threshold and sort by score
         filtered_results = [r for r in all_results if r.score >= threshold]
@@ -137,24 +117,7 @@ class FAQSearch:
 
         return search_results
 
-    def _search_qdrant(self, query: str, limit: int) -> List[SearchResult]:
-        """Search using Qdrant indexer."""
-        results = self.qdrant_indexer.search(query, limit=limit)
 
-        search_results = []
-
-        for point in results:
-            result = SearchResult(
-                question=point.payload['question'],
-                answer=point.payload['answer'],
-                category=point.payload.get('category', 'General'),
-                score=point.score,
-                source='qdrant',
-                metadata=point.payload
-            )
-            search_results.append(result)
-
-        return search_results
 
     def add_faqs_from_csv(self, csv_path: Optional[str] = None):
         """
@@ -177,14 +140,10 @@ class FAQSearch:
             if missing_columns:
                 raise ValueError(f"Missing required columns: {missing_columns}")
 
-            # Add to indexers
+            # Add to indexer
             if self.use_chroma and self.chroma_indexer:
                 self.chroma_indexer.add_faqs(faqs_df)
                 logger.info("FAQs added to Chroma")
-
-            if self.use_qdrant and self.qdrant_indexer:
-                self.qdrant_indexer.add_faqs(faqs_df)
-                logger.info("FAQs added to Qdrant")
 
             logger.info(f"Successfully indexed {len(faqs_df)} FAQs")
 
@@ -202,13 +161,7 @@ class FAQSearch:
             except Exception as e:
                 logger.warning(f"Failed to get Chroma stats: {e}")
 
-        if self.use_qdrant and self.qdrant_indexer:
-            try:
-                stats['qdrant'] = self.qdrant_indexer.get_collection_info()
-            except Exception as e:
-                logger.warning(f"Failed to get Qdrant stats: {e}")
-
         return stats
 
     def __repr__(self) -> str:
-        return f"FAQSearch(chroma={self.use_chroma}, qdrant={self.use_qdrant})"
+        return f"FAQSearch(chroma={self.use_chroma})"

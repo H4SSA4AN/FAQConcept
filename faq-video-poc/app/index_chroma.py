@@ -4,10 +4,10 @@ Chroma database indexing and management.
 
 import pandas as pd
 import chromadb
-from chromadb.config import Settings as ChromaSettings
 from typing import List, Dict, Any, Optional
 from loguru import logger
 import uuid
+import numpy as np
 
 from .settings import settings
 from .embed import TextEmbedder
@@ -33,40 +33,31 @@ class ChromaIndexer:
         """Initialize Chroma client and collection."""
         try:
             logger.info("Initializing Chroma client")
+            logger.debug(f"Chroma persist directory: {settings.chroma_persist_dir}")
 
-            # Configure Chroma settings
-            chroma_settings = ChromaSettings(
-                persist_directory=str(settings.chroma_persist_dir),
-                is_persistent=True
-            )
-
+            # Create Chroma client
             self.client = chromadb.PersistentClient(
-                path=str(settings.chroma_persist_dir),
-                settings=chroma_settings
+                path=str(settings.chroma_persist_dir)
             )
+            logger.debug("Chroma client created successfully")
 
             # Get or create collection
             try:
-                self.collection = self.client.get_collection(
-                    name=self.collection_name,
-                    embedding_function=self._embedding_function
-                )
+                logger.debug(f"Attempting to get collection: {self.collection_name}")
+                self.collection = self.client.get_collection(name=self.collection_name)
                 logger.info(f"Loaded existing collection: {self.collection_name}")
-            except ValueError:
-                self.collection = self.client.create_collection(
-                    name=self.collection_name,
-                    embedding_function=self._embedding_function
-                )
+            except Exception as e:
+                # Collection doesn't exist or other error, create new one
+                logger.info(f"Collection '{self.collection_name}' not found: {e}")
+                logger.info(f"Creating new collection: {self.collection_name}")
+                self.collection = self.client.create_collection(name=self.collection_name)
                 logger.info(f"Created new collection: {self.collection_name}")
 
         except Exception as e:
             logger.error(f"Failed to initialize Chroma client: {e}")
+            logger.error(f"Error type: {type(e).__name__}")
+            logger.error(f"ChromaDB version: {getattr(chromadb, '__version__', 'unknown')}")
             raise
-
-    def _embedding_function(self, texts: List[str]) -> List[List[float]]:
-        """Custom embedding function for Chroma."""
-        embeddings = self.embedder.encode_batch(texts, normalize=True)
-        return embeddings.tolist()
 
     def add_faqs(self, faqs_df: pd.DataFrame, batch_size: int = 100):
         """
@@ -79,8 +70,13 @@ class ChromaIndexer:
         try:
             logger.info(f"Adding {len(faqs_df)} FAQs to Chroma collection")
 
+            # Ensure collection exists
+            if self.collection is None:
+                raise RuntimeError("Collection not initialized")
+
             # Prepare data
             documents = []
+            embeddings = []
             metadatas = []
             ids = []
 
@@ -99,12 +95,18 @@ class ChromaIndexer:
                 metadatas.append(metadata)
                 ids.append(str(uuid.uuid4()))
 
+            # Compute embeddings for all documents
+            logger.debug("Computing embeddings for all documents")
+            document_embeddings = self.embedder.encode_batch(documents, normalize=True)
+            embeddings = document_embeddings.tolist()
+
             # Add to collection in batches
             for i in range(0, len(documents), batch_size):
                 end_idx = min(i + batch_size, len(documents))
 
                 self.collection.add(
                     documents=documents[i:end_idx],
+                    embeddings=embeddings[i:end_idx],
                     metadatas=metadatas[i:end_idx],
                     ids=ids[i:end_idx]
                 )
@@ -132,8 +134,15 @@ class ChromaIndexer:
         try:
             logger.debug(f"Searching Chroma for: '{query}'")
 
+            # Ensure collection exists
+            if self.collection is None:
+                raise RuntimeError("Collection not initialized")
+
+            # Compute embedding for the query
+            query_embedding = self.embedder.encode_single(query, normalize=True).tolist()
+
             results = self.collection.query(
-                query_texts=[query],
+                query_embeddings=[query_embedding],
                 n_results=n_results,
                 where=where
             )
@@ -156,6 +165,10 @@ class ChromaIndexer:
     def get_collection_info(self) -> Dict[str, Any]:
         """Get information about the collection."""
         try:
+            # Ensure collection exists
+            if self.collection is None:
+                raise RuntimeError("Collection not initialized")
+
             count = self.collection.count()
             return {
                 "name": self.collection_name,
