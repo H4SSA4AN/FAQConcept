@@ -242,7 +242,7 @@ def seed(ctx, csv_path):
 
         # Load CSV data
         click.echo(f"Loading FAQ data from: {csv_path}")
-        faqs_df = pd.read_csv(csv_path)
+        faqs_df = pd.read_csv(csv_path, encoding='utf-8')
         click.echo(f"Loaded {len(faqs_df)} FAQs")
 
         # Seed Chroma database

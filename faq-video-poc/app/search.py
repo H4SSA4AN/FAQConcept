@@ -131,7 +131,7 @@ class FAQSearch:
 
         try:
             logger.info(f"Loading FAQs from: {csv_path}")
-            faqs_df = pd.read_csv(csv_path)
+            faqs_df = pd.read_csv(csv_path, encoding='utf-8')
 
             # Validate required columns
             required_columns = ['id', 'question', 'answer']

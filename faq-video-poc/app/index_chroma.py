@@ -70,9 +70,13 @@ class ChromaIndexer:
         try:
             logger.info(f"Adding {len(faqs_df)} FAQs to Chroma collection")
 
-            # Ensure collection exists
+            # Ensure collection exists and is properly initialized
             if self.collection is None:
-                raise RuntimeError("Collection not initialized")
+                logger.info("Collection not initialized, initializing...")
+                self._initialize_client()
+
+            if self.collection is None:
+                raise RuntimeError("Failed to initialize collection")
 
             # Prepare data
             documents = []
@@ -88,7 +92,8 @@ class ChromaIndexer:
                     "question": row["question"],
                     "answer": row["answer"],
                     "category": row.get("category", "General"),
-                    "id": str(row["id"])
+                    "id": str(row["id"]),
+                    "answer__url": row.get("answer__url", "")
                 }
 
                 documents.append(document)
@@ -158,6 +163,8 @@ class ChromaIndexer:
         try:
             self.client.delete_collection(name=self.collection_name)
             logger.info(f"Deleted collection: {self.collection_name}")
+            # Reset the collection object to None so it gets reinitialized
+            self.collection = None
         except Exception as e:
             logger.error(f"Failed to delete collection: {e}")
             raise
@@ -165,9 +172,13 @@ class ChromaIndexer:
     def get_collection_info(self) -> Dict[str, Any]:
         """Get information about the collection."""
         try:
-            # Ensure collection exists
+            # Ensure collection exists and is properly initialized
             if self.collection is None:
-                raise RuntimeError("Collection not initialized")
+                logger.info("Collection not initialized, initializing...")
+                self._initialize_client()
+
+            if self.collection is None:
+                raise RuntimeError("Failed to initialize collection")
 
             count = self.collection.count()
             return {

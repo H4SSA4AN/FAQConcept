@@ -35,14 +35,23 @@ def main():
         print("Initializing Chroma indexer...")
         indexer = ChromaIndexer()
 
-        # Clear existing data (optional)
-        user_input = input("Clear existing Chroma collection? (y/N): ")
-        if user_input.lower() in ['y', 'yes']:
-            try:
-                indexer.delete_collection()
-                print("✓ Cleared existing collection")
-            except Exception as e:
-                print(f"Warning: Failed to clear collection: {e}")
+        # Clear existing data and recreate collection
+        print("Clearing existing Chroma collection to update video URLs...")
+        try:
+            indexer.delete_collection()
+            print("✓ Cleared existing collection")
+        except Exception as e:
+            print(f"⚠️  Warning: Failed to clear collection: {e}")
+
+        # Force reinitialization of the indexer to create a fresh collection
+        print("Creating fresh Chroma indexer...")
+        try:
+            # Create a new indexer instance to ensure clean state
+            indexer = ChromaIndexer()
+            print("✓ Created fresh indexer")
+        except Exception as e:
+            print(f"❌ Failed to create fresh indexer: {e}")
+            return
 
         # Add FAQ data
         print("Adding FAQs to Chroma database...")
@@ -50,7 +59,8 @@ def main():
 
         # Get collection info
         info = indexer.get_collection_info()
-        print("✓ Successfully seeded Chroma database!"        print(f"  Collection: {info['name']}")
+        print("✓ Successfully seeded Chroma database!")
+        print(f"  Collection: {info['name']}")
         print(f"  Documents: {info['count']}")
         print(f"  Embedding Dimension: {info['embedding_dimension']}")
 

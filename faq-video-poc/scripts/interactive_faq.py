@@ -108,7 +108,7 @@ def main(speech_mode=True):
 
         # Count CSV rows (minus header)
         import pandas as pd
-        csv_count = len(pd.read_csv(settings.faq_data_path))
+        csv_count = len(pd.read_csv(settings.faq_data_path, encoding='utf-8'))
 
         if db_count == 0:
             print("🔄 First-time setup: Seeding database...")

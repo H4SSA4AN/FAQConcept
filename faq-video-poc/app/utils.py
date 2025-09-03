@@ -49,7 +49,8 @@ def validate_csv_format(csv_path: str) -> pd.DataFrame:
         raise FileNotFoundError(f"CSV file not found: {csv_path}")
 
     try:
-        df = pd.read_csv(csv_path)
+        # Use UTF-8 encoding to preserve punctuation and special characters
+        df = pd.read_csv(csv_path, encoding='utf-8')
 
         # Check required columns
         required_columns = ['id', 'question', 'answer']
