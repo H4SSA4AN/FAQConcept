@@ -55,7 +55,7 @@
             position: fixed;
             top: 20px;
             right: 20px;
-            z-index: 1001;
+            z-index: 9999; /* Highest z-index to ensure always accessible */
             background: rgba(0, 0, 0, 0.7);
             color: white;
             border: none;
@@ -64,6 +64,7 @@
             cursor: pointer;
             font-weight: 600;
             transition: all 0.3s ease;
+            pointer-events: auto; /* Ensure clicks are not blocked */
         }
 
         #chat-toggle:hover {
@@ -177,6 +178,88 @@
             box-shadow: 0 5px 15px rgba(0,0,0,0.2);
         }
 
+        #conversation-panel {
+            position: fixed;
+            top: 0;
+            right: -400px; /* Hidden by default */
+            width: 400px;
+            height: 100vh;
+            z-index: 1003; /* above voice controls/loading/indicators */
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            transition: right 0.3s ease;
+            overflow-y: auto;
+            box-shadow: -5px 0 15px rgba(0,0,0,0.2);
+            opacity: 1;
+            visibility: visible;
+        }
+
+        #conversation-panel.visible {
+            right: 0 !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+
+        #conversation-panel:not(.visible) {
+            right: -400px !important;
+        }
+
+        /* Responsive design for smaller screens */
+        @media (max-width: 768px) {
+            #conversation-panel {
+                width: 100vw;
+                right: -100vw;
+            }
+
+            #conversation-panel.visible {
+                right: 0;
+            }
+        }
+
+        .conversation-messages {
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 80%;
+        }
+
+        .message.user {
+            background: rgba(102, 126, 234, 0.1);
+            margin-left: auto;
+            border-bottom-right-radius: 0;
+        }
+
+        .message.bot {
+            background: rgba(255, 255, 255, 0.9);
+            margin-right: auto;
+            border-bottom-left-radius: 0;
+        }
+
+        .message-header {
+            font-size: 0.8em;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .message-content {
+            margin: 0;
+        }
+
+        .message.user .message-content {
+            color: #333;
+        }
+
+        .message.bot .message-content {
+            color: #333;
+        }
+
         .confidence-badge {
             position: absolute;
             top: 10px;
@@ -233,9 +316,9 @@
     </video>
 
     <!-- Chat Toggle Button -->
-    <button id="chat-toggle" onclick="toggleChat()" style="display: none;">
+    <button id="chat-toggle" onclick="toggleChat()">
         <i class="fas fa-comments me-1"></i>
-        Show Chat
+        View Chat
     </button>
 
     <!-- Voice Controls -->
@@ -248,11 +331,13 @@
             <i class="fas fa-stop me-2"></i>
             Stop Recording
         </button>
-        <button class="btn btn-outline-light btn-lg ms-3" onclick="toggleTextMode()">
-            <i class="fas fa-keyboard me-2"></i>
-            Text Mode
-        </button>
     </div>
+
+    <!-- Mode Toggle Button (always visible) -->
+    <button id="mode-toggle-btn" class="btn btn-outline-light btn-lg" onclick="toggleTextMode()" style="position: fixed; bottom: 20px; right: 20px; z-index: 1002;">
+        <i class="fas fa-keyboard me-2"></i>
+        Text Mode
+    </button>
 
     <!-- Text Input Section -->
     <div id="text-input-section">
@@ -266,29 +351,28 @@
                 Search
             </button>
         </div>
+    </div>
 
-    <!-- Answer Display -->
-    <div id="answer-card" class="card">
-                <div class="card-body position-relative">
-                    <div class="confidence-badge">
-                        <i class="fas fa-check-circle me-1"></i>
-                        <span id="confidence">0</span>% match
-                    </div>
-
-                    <h5 class="card-title">
-                        <i class="fas fa-question-circle text-primary me-2"></i>
-                        Question
-                    </h5>
-                    <p class="card-text mb-3" id="question-text">Loading...</p>
-
-                    <h5 class="card-title">
-                        <i class="fas fa-lightbulb text-success me-2"></i>
-                        Answer
-                    </h5>
-                    <p class="card-text" id="answer-text">Loading...</p>
-
-                    <!-- Video now plays full-screen in background -->
+    <!-- Conversation History Panel -->
+    <div id="conversation-panel" class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-comments text-primary me-2"></i>
+                Conversation History
+            </h5>
+            <button class="btn btn-sm btn-outline-danger" onclick="clearConversation()">
+                <i class="fas fa-trash me-1"></i>
+                Clear Chat
+            </button>
+        </div>
+        <div class="card-body">
+            <div id="conversation-messages" class="conversation-messages">
+                <div class="welcome-message text-center text-muted py-4">
+                    <i class="fas fa-robot fa-2x mb-3"></i>
+                    <p>Start a conversation by asking a question!</p>
+                    <small>Use voice recording or type your questions below.</small>
                 </div>
+            </div>
         </div>
     </div>
 
@@ -298,20 +382,35 @@
         let isRecording = false;
         let isVoiceMode = true;
         let chatVisible = false;
+        let conversationHistory = [];
 
         function toggleChat() {
+            // Chat functionality is completely independent of voice/text mode
             chatVisible = !chatVisible;
-            const answerCard = document.getElementById('answer-card');
+            const conversationPanel = document.getElementById('conversation-panel');
             const chatToggle = document.getElementById('chat-toggle');
 
-            if (chatVisible) {
-                answerCard.style.display = 'block';
-                chatToggle.innerHTML = '<i class="fas fa-times me-1"></i> Hide Chat';
-            } else {
-                answerCard.style.display = 'none';
-                chatToggle.innerHTML = '<i class="fas fa-comments me-1"></i> Show Chat';
-                // Switch back to idle video when hiding chat
-                switchToIdleVideo();
+            if (conversationPanel) {
+                if (chatVisible) {
+                    // Use both class and direct style for maximum compatibility
+                    conversationPanel.classList.add('visible');
+                    conversationPanel.style.right = '0px';
+                    conversationPanel.style.opacity = '1';
+                    conversationPanel.style.visibility = 'visible';
+                    // Force a reflow to ensure styles are applied
+                    conversationPanel.offsetHeight;
+                    chatToggle.innerHTML = '<i class="fas fa-times me-1"></i> Hide Chat';
+                    loadConversationHistory();
+                } else {
+                    // Use both class and direct style for maximum compatibility
+                    conversationPanel.classList.remove('visible');
+                    conversationPanel.style.right = '-400px';
+                    conversationPanel.style.opacity = '1';
+                    conversationPanel.style.visibility = 'visible';
+                    chatToggle.innerHTML = '<i class="fas fa-comments me-1"></i> View Chat';
+                    // Chat visibility should not affect video playback
+                    // Videos continue playing independently
+                }
             }
         }
 
@@ -319,23 +418,27 @@
             isVoiceMode = !isVoiceMode;
             const textSection = document.getElementById('text-input-section');
             const voiceControls = document.querySelector('.voice-controls');
+            const modeToggleBtn = document.getElementById('mode-toggle-btn');
 
             if (isVoiceMode) {
+                // Switch to voice mode
                 textSection.style.display = 'none';
                 voiceControls.style.display = 'block';
+                // Update button to show "Text Mode" (what you'll switch to)
+                modeToggleBtn.innerHTML = '<i class="fas fa-keyboard me-2"></i>Text Mode';
             } else {
+                // Switch to text mode
                 textSection.style.display = 'block';
                 voiceControls.style.display = 'none';
+                // Update button to show "Voice Mode" (what you'll switch to)
+                modeToggleBtn.innerHTML = '<i class="fas fa-microphone me-2"></i>Voice Mode';
             }
         }
 
         async function startRecording() {
             try {
-                // Hide answer card and chat toggle first
-                document.getElementById('answer-card').style.display = 'none';
-                document.getElementById('chat-toggle').style.display = 'none';
-                chatVisible = false;
-                document.getElementById('chat-toggle').innerHTML = '<i class="fas fa-comments me-1"></i> Show Chat';
+                // Keep conversation panel visible during speech mode
+                // User can toggle chat visibility as needed
 
                 // Switch back to idle video when starting a new question
                 switchToIdleVideo();
@@ -497,11 +600,8 @@
                 return;
             }
 
-            // Hide answer card and chat toggle first
-            document.getElementById('answer-card').style.display = 'none';
-            document.getElementById('chat-toggle').style.display = 'none';
-            chatVisible = false;
-            document.getElementById('chat-toggle').innerHTML = '<i class="fas fa-comments me-1"></i> Show Chat';
+            // Keep conversation panel visible during text mode
+            // User can toggle chat visibility as needed
 
             // Switch back to idle video when starting a new question
             switchToIdleVideo();
@@ -544,11 +644,125 @@
             }
         }
 
+        function addMessageToConversation(userMessage, botResult) {
+            // Store in local conversation history array
+            conversationHistory.push({
+                timestamp: new Date().toISOString(),
+                user: userMessage,
+                bot: botResult
+            });
+
+            const messagesContainer = document.getElementById('conversation-messages');
+            const welcomeMessage = messagesContainer.querySelector('.welcome-message');
+            if (welcomeMessage) {
+                welcomeMessage.remove();
+            }
+
+            // Add user message
+            const userMessageDiv = document.createElement('div');
+            userMessageDiv.className = 'message user';
+            userMessageDiv.innerHTML = `
+                <div class="message-header">
+                    <i class="fas fa-user me-1"></i>You
+                </div>
+                <div class="message-content">${userMessage}</div>
+            `;
+            messagesContainer.appendChild(userMessageDiv);
+
+            // Add bot response
+            const botMessageDiv = document.createElement('div');
+            botMessageDiv.className = 'message bot';
+            const confidenceBadge = botResult.confidence ? `<span class="badge bg-success ms-2">${botResult.confidence}% match</span>` : '';
+            botMessageDiv.innerHTML = `
+                <div class="message-header">
+                    <i class="fas fa-robot me-1"></i>Assistant ${confidenceBadge}
+                </div>
+                                    <div class="message-content">
+                        <strong>Question:</strong> ${botResult.question}<br>
+                        <strong>Answer:</strong> ${botResult.answer}
+                    </div>
+            `;
+            messagesContainer.appendChild(botMessageDiv);
+
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function loadConversationHistory() {
+            const messagesContainer = document.getElementById('conversation-messages');
+            messagesContainer.innerHTML = '';
+
+            if (conversationHistory.length === 0) {
+                messagesContainer.innerHTML = `
+                    <div class="welcome-message text-center text-muted py-4">
+                        <i class="fas fa-robot fa-2x mb-3"></i>
+                        <p>Welcome to the FAQ Assistant!</p>
+                        <p>Your conversation history will appear here.</p>
+                        <small>Ask questions using voice or text to get started.</small>
+                    </div>
+                `;
+                return;
+            }
+
+            // Display all messages from local conversation history
+            conversationHistory.forEach(item => {
+                // Create user message element
+                const userMessageDiv = document.createElement('div');
+                userMessageDiv.className = 'message user';
+                userMessageDiv.innerHTML = `
+                    <div class="message-header">
+                        <i class="fas fa-user me-1"></i>You
+                    </div>
+                    <div class="message-content">${item.user}</div>
+                `;
+                messagesContainer.appendChild(userMessageDiv);
+
+                // Create bot response element
+                const botMessageDiv = document.createElement('div');
+                botMessageDiv.className = 'message bot';
+                const confidenceBadge = item.bot.confidence ? `<span class="badge bg-success ms-2">${item.bot.confidence}% match</span>` : '';
+                botMessageDiv.innerHTML = `
+                    <div class="message-header">
+                        <i class="fas fa-robot me-1"></i>Assistant ${confidenceBadge}
+                    </div>
+                    <div class="message-content">
+                        <strong>Question:</strong> ${item.bot.question}<br>
+                        <strong>Answer:</strong> ${item.bot.answer}
+                    </div>
+                `;
+                messagesContainer.appendChild(botMessageDiv);
+            });
+
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function clearConversation() {
+            if (confirm('Are you sure you want to clear the conversation history?')) {
+                // Clear local conversation history array
+                conversationHistory = [];
+
+                const messagesContainer = document.getElementById('conversation-messages');
+                messagesContainer.innerHTML = `
+                    <div class="welcome-message text-center text-muted py-4">
+                        <i class="fas fa-robot fa-2x mb-3"></i>
+                        <p>Welcome to the FAQ Assistant!</p>
+                        <p>Your conversation history will appear here.</p>
+                        <small>Ask questions using voice or text to get started.</small>
+                    </div>
+                `;
+            }
+        }
+
         function displayResult(result) {
-            // Update question and answer
-            document.getElementById('question-text').textContent = result.question || result.transcription || result.query;
-            document.getElementById('answer-text').textContent = result.answer;
-            document.getElementById('confidence').textContent = result.confidence || 'N/A';
+            // Add message to conversation
+            const userMessage = result.transcription || result.query;
+            const botResult = {
+                question: result.question,
+                answer: result.answer,
+                confidence: result.confidence
+            };
+            addMessageToConversation(userMessage, botResult);
 
             // Handle video - show answer video and hide idle video
             const idleVideo = document.getElementById('idle-video');
@@ -613,11 +827,7 @@
                 switchToIdleVideo();
             }
 
-            // Show answer card and chat toggle
-            document.getElementById('answer-card').style.display = 'block';
-            document.getElementById('chat-toggle').style.display = 'block';
-
-            // Auto-show chat when there's a result
+            // Auto-show chat when there's a result (if not already visible)
             if (!chatVisible) {
                 toggleChat();
             }
@@ -646,16 +856,36 @@
             }, 300);
         }
 
-        // Initialize videos when page loads
+        // Initialize videos and ensure chat is accessible
         document.addEventListener('DOMContentLoaded', function() {
             const idleVideo = document.getElementById('idle-video');
             const answerVideo = document.getElementById('answer-video-bg');
+            const chatToggle = document.getElementById('chat-toggle');
 
             // Ensure idle video is visible and answer video is hidden
             idleVideo.style.display = 'block';
             answerVideo.style.display = 'none';
 
-            console.log('Videos initialized: idle video visible, answer video hidden');
+            // Conversation panel is hidden by default via CSS (right: -400px)
+
+            // Ensure chat toggle is always accessible
+            chatToggle.style.pointerEvents = 'auto';
+            chatToggle.style.zIndex = '9999';
+
+            // Ensure conversation panel is properly initialized
+            const conversationPanel = document.getElementById('conversation-panel');
+            if (conversationPanel) {
+                conversationPanel.style.right = '-400px';
+                conversationPanel.style.opacity = '1';
+                conversationPanel.style.visibility = 'visible';
+            }
+
+            // Ensure chat toggle is always accessible in all modes
+            chatToggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleChat();
+            }, true); // capture phase to avoid being swallowed by other handlers
         });
 
         // Allow Enter key to submit in text mode

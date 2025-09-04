@@ -5,8 +5,10 @@ Flask web application for FAQ voice search with video playback.
 import os
 import tempfile
 import json
+import csv
 from pathlib import Path
 from flask import Flask, request, jsonify, render_template, send_from_directory
+from datetime import datetime
 import sys
 
 # Add the faq-video-poc directory to the Python path
@@ -56,6 +58,37 @@ def initialize_components():
         return False
 
     return True
+
+
+def save_unanswered_question(question, source="voice"):
+    """Save unanswered question to questions.csv file."""
+    questions_file = project_root / "data" / "questions.csv"
+
+    # Create the data directory if it doesn't exist
+    questions_file.parent.mkdir(exist_ok=True)
+
+    # Check if file exists to determine if we need headers
+    file_exists = questions_file.exists()
+
+    try:
+        with open(questions_file, 'a', newline='', encoding='utf-8') as csvfile:
+            fieldnames = ['timestamp', 'question', 'source']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+            # Write header if file is new
+            if not file_exists:
+                writer.writeheader()
+
+            # Write the unanswered question
+            writer.writerow({
+                'timestamp': datetime.now().isoformat(),
+                'question': question,
+                'source': source
+            })
+
+        print(f"📝 Saved unanswered question: '{question}'")
+    except Exception as e:
+        print(f"❌ Error saving unanswered question: {e}")
 
 @app.route('/')
 def index():
@@ -161,10 +194,18 @@ def process_audio():
         results = faq_search.search(transcribed_text, limit=1, threshold=0.0)
 
         if not results:
+            # Save unanswered question to CSV
+            save_unanswered_question(transcribed_text, "voice")
+
+
             return jsonify({
                 'transcription': transcribed_text,
-                'error': 'No relevant answers found'
-            }), 404
+                'question': "No answer found",
+                'answer': "I'm sorry, I don't have an answer for that question. I'll save it for review.",
+                'category': "Unanswered",
+                'confidence': 0,
+                'video_url': '/videos/audio_noAns.mp4'
+            })
 
         # Get the best result
         best_result = results[0]
@@ -175,6 +216,7 @@ def process_audio():
             video_filename = best_result.metadata['answer__url']
             if video_filename and video_filename.strip():
                 video_url = f'/videos/{video_filename}'
+
 
         return jsonify({
             'transcription': transcribed_text,
@@ -219,10 +261,18 @@ def search_text():
         results = faq_search.search(query, limit=1, threshold=0.0)
 
         if not results:
+            # Save unanswered question to CSV
+            save_unanswered_question(query, "text")
+
+
             return jsonify({
                 'query': query,
-                'error': 'No relevant answers found'
-            }), 404
+                'question': "No answer found",
+                'answer': "I'm sorry, I don't have an answer for that question. I'll save it for review.",
+                'category': "Unanswered",
+                'confidence': 0,
+                'video_url': '/videos/audio_noAns.mp4'
+            })
 
         # Get the best result
         best_result = results[0]
@@ -233,6 +283,7 @@ def search_text():
             video_filename = best_result.metadata['answer__url']
             if video_filename and video_filename.strip():
                 video_url = f'/videos/{video_filename}'
+
 
         return jsonify({
             'query': query,
@@ -251,6 +302,7 @@ def search_text():
 def health_check():
     """Health check endpoint."""
     return jsonify({'status': 'healthy'})
+
 
 
 
