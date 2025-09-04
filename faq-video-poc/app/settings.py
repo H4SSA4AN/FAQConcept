@@ -73,7 +73,7 @@ class AppConfig:
     """Main application configuration."""
     log_level: str = "INFO"
     max_results: int = 5
-    similarity_threshold: float = 0.6
+    similarity_threshold: float = 0.3
 
 
 class Settings:
@@ -124,7 +124,7 @@ class Settings:
         self.app = AppConfig(
             log_level=os.getenv("LOG_LEVEL", "INFO"),
             max_results=int(os.getenv("MAX_RESULTS", "5")),
-            similarity_threshold=float(os.getenv("SIMILARITY_THRESHOLD", "0.7"))
+            similarity_threshold=float(os.getenv("SIMILARITY_THRESHOLD", "0.3"))
         )
 
     @property

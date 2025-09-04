@@ -191,7 +191,7 @@ def process_audio():
 
         # Search for FAQ answers
         print("🔍 Searching for answers...")
-        results = faq_search.search(transcribed_text, limit=1, threshold=0.0)
+        results = faq_search.search(transcribed_text, limit=1)
 
         if not results:
             # Save unanswered question to CSV
@@ -258,7 +258,7 @@ def search_text():
     try:
         # Search for FAQ answers
         print(f"🔍 Searching for: '{query}'")
-        results = faq_search.search(query, limit=1, threshold=0.0)
+        results = faq_search.search(query, limit=1)
 
         if not results:
             # Save unanswered question to CSV

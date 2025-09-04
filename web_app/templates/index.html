@@ -310,7 +310,7 @@
     </video>
 
     <!-- Intro Video (plays once on load, then switches to idle) -->
-    <video id="intro-video" autoplay playsinline class="background-video" style="display: none;">
+    <video id="intro-video"  playsinline class="background-video" style="display: none;">
         <source src="/videos/introVideo.mp4" type="video/mp4">
         Your browser does not support the video tag.
     </video>
@@ -395,20 +395,6 @@
         let isVoiceMode = true;
         let chatVisible = false;
         let conversationHistory = [];
-
-        function isAnswerVideoPlaying() {
-            const answerVideo = document.getElementById('answer-video-bg');
-            if (!answerVideo) return false;
-            const visible = answerVideo.style.display !== 'none';
-            return visible && !answerVideo.paused && answerVideo.currentTime > 0;
-        }
-
-        function pauseAnswerVideoIfPlaying() {
-            const answerVideo = document.getElementById('answer-video-bg');
-            if (isAnswerVideoPlaying()) {
-                try { answerVideo.pause(); } catch (_) {}
-            }
-        }
 
         function toggleChat() {
             // Chat functionality is completely independent of voice/text mode
@@ -523,8 +509,6 @@
 
                     // Start immediately on first speech frame to avoid clipping the first word
                     if (!currentlyRecording && peak > SPEECH_THRESHOLD) {
-                        // If an answer video is playing, pause it to allow interruption
-                        pauseAnswerVideoIfPlaying();
                         speechCounter = 0; // reset debounce counter
                         startRecordingWithStream(audioStream);
                         currentlyRecording = true;
@@ -547,8 +531,29 @@
             }
         }
 
+        function pauseCurrentVideo() {
+            // Pause whichever video is currently playing
+            const idleVideo = document.getElementById('idle-video');
+            const introVideo = document.getElementById('intro-video');
+            const answerVideo = document.getElementById('answer-video-bg');
+
+            if (introVideo && introVideo.style.display !== 'none' && !introVideo.paused) {
+                introVideo.pause();
+                console.log('Paused intro video due to voice detection');
+            } else if (answerVideo && answerVideo.style.display !== 'none' && !answerVideo.paused) {
+                answerVideo.pause();
+                console.log('Paused answer video due to voice detection');
+            } else if (idleVideo && idleVideo.style.display !== 'none' && !idleVideo.paused) {
+                idleVideo.pause();
+                console.log('Paused idle video due to voice detection');
+            }
+        }
+
         function startRecordingWithStream(stream) {
             try {
+                // Pause the current video when voice is detected
+                pauseCurrentVideo();
+
                 // Switch back to idle background
                 switchToIdleVideo();
 
@@ -628,6 +633,9 @@
 
         async function startRecording() {
             try {
+                // Pause current video when starting manual recording
+                pauseCurrentVideo();
+
                 // Keep conversation panel visible during speech mode
                 // User can toggle chat visibility as needed
 

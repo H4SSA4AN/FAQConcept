@@ -198,7 +198,7 @@ def main(speech_mode=True):
                 print(f"🔍 Searching for: '{query}'")
                 print("-" * 40)
 
-            results = search_engine.search(query, limit=5, threshold=0.0)
+            results = search_engine.search(query, limit=5)
 
             if not results:
                 if speech_mode:
