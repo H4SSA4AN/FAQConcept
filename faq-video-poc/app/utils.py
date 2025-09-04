@@ -23,11 +23,19 @@ def clean_text(text: str) -> str:
     if not text:
         return ""
 
-    # Remove extra whitespace
+    # Normalize whitespace
     text = re.sub(r'\s+', ' ', text.strip())
 
-    # Remove special characters but keep basic punctuation
-    text = re.sub(r'[^\w\s.,!?-]', '', text)
+    # Preserve separators like slashes by spacing them, so tokens don't merge
+    # e.g., "placements/have" -> "placements / have"
+    text = text.replace('/', ' / ')
+
+    # Relaxed cleaning: keep common punctuation that conveys structure
+    # Keep: . , ! ? - / & ( ) : '
+    text = re.sub(r"[^\w\s\.,!\?/&():'-]", '', text)
+
+    # Collapse any extra spaces introduced
+    text = re.sub(r'\s+', ' ', text).strip()
 
     return text
 
@@ -68,7 +76,7 @@ def validate_csv_format(csv_path: str) -> pd.DataFrame:
             if df[col].isnull().any():
                 raise ValueError(f"Column '{col}' contains empty values")
 
-        # Clean text columns
+        # Clean text columns (lightweight - preserves separators like '/')
         df['question'] = df['question'].apply(clean_text)
         df['answer'] = df['answer'].apply(clean_text)
 

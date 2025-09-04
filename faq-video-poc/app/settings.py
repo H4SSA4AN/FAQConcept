@@ -73,7 +73,7 @@ class AppConfig:
     """Main application configuration."""
     log_level: str = "INFO"
     max_results: int = 5
-    similarity_threshold: float = 0.7
+    similarity_threshold: float = 0.6
 
 
 class Settings:

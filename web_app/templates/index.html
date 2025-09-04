@@ -396,6 +396,20 @@
         let chatVisible = false;
         let conversationHistory = [];
 
+        function isAnswerVideoPlaying() {
+            const answerVideo = document.getElementById('answer-video-bg');
+            if (!answerVideo) return false;
+            const visible = answerVideo.style.display !== 'none';
+            return visible && !answerVideo.paused && answerVideo.currentTime > 0;
+        }
+
+        function pauseAnswerVideoIfPlaying() {
+            const answerVideo = document.getElementById('answer-video-bg');
+            if (isAnswerVideoPlaying()) {
+                try { answerVideo.pause(); } catch (_) {}
+            }
+        }
+
         function toggleChat() {
             // Chat functionality is completely independent of voice/text mode
             chatVisible = !chatVisible;
@@ -509,6 +523,8 @@
 
                     // Start immediately on first speech frame to avoid clipping the first word
                     if (!currentlyRecording && peak > SPEECH_THRESHOLD) {
+                        // If an answer video is playing, pause it to allow interruption
+                        pauseAnswerVideoIfPlaying();
                         speechCounter = 0; // reset debounce counter
                         startRecordingWithStream(audioStream);
                         currentlyRecording = true;
