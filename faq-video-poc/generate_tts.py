@@ -27,7 +27,7 @@ def generate_tts_audio():
         response = client.audio.speech.create(
             model="tts-1",
             voice="alloy",  # Options: alloy, echo, fable, onyx, nova, shimmer
-            input="Yes, information on study exchange is available on the lboro website, navigating to subjects, International relations, politics and history, then undergraduate, then study exchange. Alternatively, open the chat and click the link."
+            input="Hello! I'm here to answer some questions you have about the placement year at Loughborough University."
         )
 
         # Save audio file

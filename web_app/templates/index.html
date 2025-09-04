@@ -309,6 +309,13 @@
         Your browser does not support the video tag.
     </video>
 
+    <!-- Intro Video (plays once on load, then switches to idle) -->
+    <video id="intro-video" autoplay playsinline class="background-video" style="display: none;">
+        <source src="/videos/introVideo.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+
+
     <!-- Answer Video (hidden by default, unmuted) -->
     <video id="answer-video-bg" playsinline class="background-video" style="display: none;">
         <source src="" type="video/mp4">
@@ -323,9 +330,9 @@
 
     <!-- Voice Controls -->
     <div class="voice-controls">
-        <button id="record-btn" class="btn btn-primary btn-lg" onclick="startRecording()">
+        <button id="record-btn" class="btn btn-primary btn-lg" onclick="toggleVoice()">
             <i class="fas fa-microphone me-2"></i>
-            Start Recording
+            Enable Voice
         </button>
         <button id="stop-btn" class="btn btn-danger btn-lg ms-3" onclick="stopRecording()" style="display: none;">
             <i class="fas fa-stop me-2"></i>
@@ -380,6 +387,11 @@
         let mediaRecorder;
         let audioChunks = [];
         let isRecording = false;
+        let vadEnabled = false;
+        let audioStream = null;
+        let audioContext = null;
+        let analyser = null;
+        let vadRafId = null;
         let isVoiceMode = true;
         let chatVisible = false;
         let conversationHistory = [];
@@ -414,6 +426,169 @@
             }
         }
 
+        function toggleVoice() {
+            if (vadEnabled) {
+                disableVoice();
+            } else {
+                enableVoice();
+            }
+        }
+
+        async function enableVoice() {
+            // Play intro (with fallback) and start VAD listening
+            const introVideo = document.getElementById('intro-video');
+            const idleVideo = document.getElementById('idle-video');
+            const answerVideo = document.getElementById('answer-video-bg');
+
+            if (introVideo) {
+                // Show intro, hide others
+                introVideo.style.display = 'block';
+                idleVideo.style.display = 'none';
+                answerVideo.style.display = 'none';
+
+                // Try unmuted; fallback muted if blocked
+                introVideo.muted = false;
+                try { await introVideo.play(); } catch (_) { introVideo.muted = true; try { await introVideo.play(); } catch (_) {} }
+
+                introVideo.onended = () => {
+                    introVideo.style.display = 'none';
+                    idleVideo.style.display = 'block';
+                    idleVideo.play();
+                };
+            }
+
+            // Start VAD
+            await startVAD();
+            const btn = document.getElementById('record-btn');
+            btn.innerHTML = '<i class="fas fa-microphone-slash me-2"></i>Disable Voice';
+        }
+
+        async function startVAD() {
+            try {
+                if (!audioStream) {
+                    audioStream = await navigator.mediaDevices.getUserMedia({
+                        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                    });
+                }
+
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const source = audioContext.createMediaStreamSource(audioStream);
+                    analyser = audioContext.createAnalyser();
+                    analyser.fftSize = 2048;
+                    source.connect(analyser);
+                }
+
+                vadEnabled = true;
+                // In VAD mode, keep a single toggle button
+                document.getElementById('stop-btn').style.display = 'none';
+
+                const dataArray = new Uint8Array(analyser.fftSize);
+                const SPEECH_THRESHOLD = 10; // simple amplitude threshold
+                const MIN_SPEECH_FRAMES = 12; // ~200ms min to ensure real speech before starting
+                const SILENCE_MS = 2000; // require 2 seconds of silence to stop
+                let speechCounter = 0;
+                let currentlyRecording = false;
+                let lastSpeechAt = performance.now();
+
+                const vadLoop = () => {
+                    if (!vadEnabled) return;
+                    analyser.getByteTimeDomainData(dataArray);
+                    // Compute peak deviation from midline (128)
+                    let peak = 0;
+                    for (let i = 0; i < dataArray.length; i++) {
+                        const v = Math.abs(dataArray[i] - 128);
+                        if (v > peak) peak = v;
+                    }
+
+                    const now = performance.now();
+                    if (peak > SPEECH_THRESHOLD) {
+                        speechCounter++;
+                        lastSpeechAt = now;
+                    }
+
+                    // Start immediately on first speech frame to avoid clipping the first word
+                    if (!currentlyRecording && peak > SPEECH_THRESHOLD) {
+                        speechCounter = 0; // reset debounce counter
+                        startRecordingWithStream(audioStream);
+                        currentlyRecording = true;
+                    }
+
+                    // Stop only after sustained silence of SILENCE_MS
+                    if (currentlyRecording && (now - lastSpeechAt) >= SILENCE_MS) {
+                        stopRecording();
+                        currentlyRecording = false;
+                        speechCounter = 0;
+                    }
+
+                    vadRafId = requestAnimationFrame(vadLoop);
+                };
+
+                vadLoop();
+            } catch (err) {
+                console.error('VAD init failed:', err);
+                alert('Unable to access microphone for hands-free mode.');
+            }
+        }
+
+        function startRecordingWithStream(stream) {
+            try {
+                // Switch back to idle background
+                switchToIdleVideo();
+
+                // Setup MediaRecorder using existing logic
+                let mimeType = 'audio/webm';
+                if (!MediaRecorder.isTypeSupported(mimeType)) {
+                    mimeType = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : (MediaRecorder.isTypeSupported('audio/wav') ? 'audio/wav' : '');
+                }
+                if (!mimeType) return;
+
+                mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onerror = (event) => {
+                    console.error('MediaRecorder error:', event.error);
+                };
+
+                mediaRecorder.onstop = () => {
+                    processAudio();
+                };
+
+                mediaRecorder.start(100);
+                isRecording = true;
+
+                // Show recording indicator
+                let indicator = document.querySelector('.recording-indicator');
+                if (!indicator) {
+                    indicator = document.createElement('div');
+                    indicator.className = 'recording-indicator';
+                    indicator.innerHTML = '<i class="fas fa-circle me-2"></i><strong>Recording... Speak now!</strong>';
+                    document.body.appendChild(indicator);
+                }
+                indicator.style.display = 'block';
+            } catch (e) {
+                console.error('startRecordingWithStream error:', e);
+            }
+        }
+
+        function disableVoice() {
+            vadEnabled = false;
+            if (vadRafId) cancelAnimationFrame(vadRafId);
+            if (mediaRecorder && isRecording) {
+                try { mediaRecorder.stop(); } catch (_) {}
+                isRecording = false;
+            }
+            const indicator = document.querySelector('.recording-indicator');
+            if (indicator) indicator.style.display = 'none';
+            const btn = document.getElementById('record-btn');
+            btn.innerHTML = '<i class="fas fa-microphone me-2"></i>Enable Voice';
+        }
         function toggleTextMode() {
             isVoiceMode = !isVoiceMode;
             const textSection = document.getElementById('text-input-section');
@@ -860,11 +1035,13 @@
         document.addEventListener('DOMContentLoaded', function() {
             const idleVideo = document.getElementById('idle-video');
             const answerVideo = document.getElementById('answer-video-bg');
+            const introVideo = document.getElementById('intro-video');
             const chatToggle = document.getElementById('chat-toggle');
 
-            // Ensure idle video is visible and answer video is hidden
+            // On load, show idle video; intro will be played when enabling voice
             idleVideo.style.display = 'block';
             answerVideo.style.display = 'none';
+            if (introVideo) introVideo.style.display = 'none';
 
             // Conversation panel is hidden by default via CSS (right: -400px)
 

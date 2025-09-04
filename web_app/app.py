@@ -307,10 +307,16 @@ def health_check():
 
 
 if __name__ == '__main__':
-    if not initialize_components():
-        print("❌ Failed to initialize components. Exiting.")
-        sys.exit(1)
+    # Avoid double initialization/boot logs when Flask reloader is active
+    from os import environ
+    is_reloader_child = environ.get('WERKZEUG_RUN_MAIN') == 'true'
 
-    print("🚀 Starting Flask web application...")
-    print("🌐 Open your browser and go to: http://localhost:5000")
+    if not app.debug or is_reloader_child:
+        if not initialize_components():
+            print("❌ Failed to initialize components. Exiting.")
+            sys.exit(1)
+
+        print("🚀 Starting Flask web application...")
+        print("🌐 Open your browser and go to: http://localhost:5000")
+
     app.run(debug=True, host='0.0.0.0', port=5000)
