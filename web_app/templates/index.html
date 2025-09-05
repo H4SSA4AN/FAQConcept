@@ -1,0 +1,1100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Voice FAQ Assistant</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        body {
+            background: #f5f5f5;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 0;
+            overflow: hidden;
+        }
+
+        .background-video {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            z-index: -1;
+            transition: opacity 0.3s ease-in-out;
+            opacity: 1;
+        }
+
+        .container {
+            max-width: 800px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .card {
+            border: none;
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+            backdrop-filter: blur(10px);
+            background: rgba(255, 255, 255, 0.95);
+        }
+
+        #answer-card {
+            display: none;
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            width: 400px;
+            max-width: 90vw;
+            z-index: 1000;
+        }
+
+        #chat-toggle {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            z-index: 9999; /* Highest z-index to ensure always accessible */
+            background: rgba(0, 0, 0, 0.7);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s ease;
+            pointer-events: auto; /* Ensure clicks are not blocked */
+        }
+
+        #chat-toggle:hover {
+            background: rgba(0, 0, 0, 0.9);
+            transform: scale(1.05);
+        }
+
+        .recording-indicator {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1001;
+            background: rgba(220, 53, 69, 0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: 600;
+        }
+
+        .loading {
+            position: fixed;
+            top: 20px;
+            left: 20px;
+            z-index: 1001;
+            background: rgba(0, 123, 255, 0.9);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 25px;
+            font-weight: 600;
+        }
+
+        .voice-controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            z-index: 1001;
+            text-align: center;
+        }
+
+        .voice-controls .btn {
+            margin: 0 10px;
+        }
+
+        #text-input-section {
+            position: fixed;
+            bottom: 20px;
+            left: 20px;
+            z-index: 1001;
+            background: rgba(255, 255, 255, 0.95);
+            padding: 20px;
+            border-radius: 15px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            display: none;
+        }
+
+        .video-container {
+            display: none;
+        }
+
+        .btn-primary {
+            background: linear-gradient(45deg, #667eea, #764ba2);
+            border: none;
+            border-radius: 25px;
+            padding: 12px 30px;
+            font-weight: 600;
+            transition: all 0.3s ease;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        .btn-danger {
+            border-radius: 25px;
+            padding: 12px 30px;
+            font-weight: 600;
+        }
+
+        .recording-indicator {
+            display: none;
+            color: #dc3545;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+
+        .answer-card {
+            display: none;
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .video-container {
+            display: none;
+            margin-top: 20px;
+        }
+
+        .video-container video {
+            width: 100%;
+            border-radius: 10px;
+            box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+        }
+
+        #conversation-panel {
+            position: fixed;
+            top: 0;
+            right: -400px; /* Hidden by default */
+            width: 400px;
+            height: 100vh;
+            z-index: 1003; /* above voice controls/loading/indicators */
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            transition: right 0.3s ease;
+            overflow-y: auto;
+            box-shadow: -5px 0 15px rgba(0,0,0,0.2);
+            opacity: 1;
+            visibility: visible;
+        }
+
+        #conversation-panel.visible {
+            right: 0 !important;
+            opacity: 1 !important;
+            visibility: visible !important;
+        }
+
+        #conversation-panel:not(.visible) {
+            right: -400px !important;
+        }
+
+        /* Responsive design for smaller screens */
+        @media (max-width: 768px) {
+            #conversation-panel {
+                width: 100vw;
+                right: -100vw;
+            }
+
+            #conversation-panel.visible {
+                right: 0;
+            }
+        }
+
+        .conversation-messages {
+            max-height: calc(100vh - 120px);
+            overflow-y: auto;
+            padding: 10px;
+        }
+
+        .message {
+            margin-bottom: 15px;
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 80%;
+        }
+
+        .message.user {
+            background: rgba(102, 126, 234, 0.1);
+            margin-left: auto;
+            border-bottom-right-radius: 0;
+        }
+
+        .message.bot {
+            background: rgba(255, 255, 255, 0.9);
+            margin-right: auto;
+            border-bottom-left-radius: 0;
+        }
+
+        .message-header {
+            font-size: 0.8em;
+            color: #666;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+
+        .message-content {
+            margin: 0;
+        }
+
+        .message.user .message-content {
+            color: #333;
+        }
+
+        .message.bot .message-content {
+            color: #333;
+        }
+
+        .confidence-badge {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            color: white;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.8em;
+        }
+
+        .text-input {
+            display: none;
+        }
+
+        .toggle-mode {
+            cursor: pointer;
+            color: #6c757d;
+            text-decoration: underline;
+        }
+
+        .loading {
+            display: none;
+        }
+
+        .spinner {
+            width: 20px;
+            height: 20px;
+            border: 2px solid #f3f3f3;
+            border-top: 2px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <!-- Idle Video (always looping, muted) -->
+    <video id="idle-video" autoplay muted loop playsinline class="background-video">
+        <source src="/videos/IdleVideo.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+
+    <!-- Intro Video (plays once on load, then switches to idle) -->
+    <video id="intro-video"  playsinline class="background-video" style="display: none;">
+        <source src="/videos/introVideo.mp4" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+
+
+    <!-- Answer Video (hidden by default, unmuted) -->
+    <video id="answer-video-bg" playsinline class="background-video" style="display: none;">
+        <source src="" type="video/mp4">
+        Your browser does not support the video tag.
+    </video>
+
+    <!-- Chat Toggle Button -->
+    <button id="chat-toggle" onclick="toggleChat()">
+        <i class="fas fa-comments me-1"></i>
+        View Chat
+    </button>
+
+    <!-- Voice Controls -->
+    <div class="voice-controls">
+        <button id="record-btn" class="btn btn-primary btn-lg" onclick="toggleVoice()">
+            <i class="fas fa-microphone me-2"></i>
+            Enable Voice
+        </button>
+        <button id="stop-btn" class="btn btn-danger btn-lg ms-3" onclick="stopRecording()" style="display: none;">
+            <i class="fas fa-stop me-2"></i>
+            Stop Recording
+        </button>
+    </div>
+
+    <!-- Mode Toggle Button (always visible) -->
+    <button id="mode-toggle-btn" class="btn btn-outline-light btn-lg" onclick="toggleTextMode()" style="position: fixed; bottom: 20px; right: 20px; z-index: 1002;">
+        <i class="fas fa-keyboard me-2"></i>
+        Text Mode
+    </button>
+
+    <!-- Text Input Section -->
+    <div id="text-input-section">
+        <div class="mb-3">
+            <label for="text-query" class="form-label text-dark">Ask your question:</label>
+            <input type="text" class="form-control" id="text-query" placeholder="Type your question here...">
+        </div>
+        <div class="text-center">
+            <button class="btn btn-primary" onclick="searchText()">
+                <i class="fas fa-search me-2"></i>
+                Search
+            </button>
+        </div>
+    </div>
+
+    <!-- Conversation History Panel -->
+    <div id="conversation-panel" class="card">
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <h5 class="mb-0">
+                <i class="fas fa-comments text-primary me-2"></i>
+                Conversation History
+            </h5>
+            <button class="btn btn-sm btn-outline-danger" onclick="clearConversation()">
+                <i class="fas fa-trash me-1"></i>
+                Clear Chat
+            </button>
+        </div>
+        <div class="card-body">
+            <div id="conversation-messages" class="conversation-messages">
+                <div class="welcome-message text-center text-muted py-4">
+                    <i class="fas fa-robot fa-2x mb-3"></i>
+                    <p>Start a conversation by asking a question!</p>
+                    <small>Use voice recording or type your questions below.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let mediaRecorder;
+        let audioChunks = [];
+        let isRecording = false;
+        let vadEnabled = false;
+        let audioStream = null;
+        let audioContext = null;
+        let analyser = null;
+        let vadRafId = null;
+        let isVoiceMode = true;
+        let chatVisible = false;
+        let conversationHistory = [];
+
+        function toggleChat() {
+            // Chat functionality is completely independent of voice/text mode
+            chatVisible = !chatVisible;
+            const conversationPanel = document.getElementById('conversation-panel');
+            const chatToggle = document.getElementById('chat-toggle');
+
+            if (conversationPanel) {
+                if (chatVisible) {
+                    // Use both class and direct style for maximum compatibility
+                    conversationPanel.classList.add('visible');
+                    conversationPanel.style.right = '0px';
+                    conversationPanel.style.opacity = '1';
+                    conversationPanel.style.visibility = 'visible';
+                    // Force a reflow to ensure styles are applied
+                    conversationPanel.offsetHeight;
+                    chatToggle.innerHTML = '<i class="fas fa-times me-1"></i> Hide Chat';
+                    loadConversationHistory();
+                } else {
+                    // Use both class and direct style for maximum compatibility
+                    conversationPanel.classList.remove('visible');
+                    conversationPanel.style.right = '-400px';
+                    conversationPanel.style.opacity = '1';
+                    conversationPanel.style.visibility = 'visible';
+                    chatToggle.innerHTML = '<i class="fas fa-comments me-1"></i> View Chat';
+                    // Chat visibility should not affect video playback
+                    // Videos continue playing independently
+                }
+            }
+        }
+
+        function toggleVoice() {
+            if (vadEnabled) {
+                disableVoice();
+            } else {
+                enableVoice();
+            }
+        }
+
+        async function enableVoice() {
+            // Play intro (with fallback) and start VAD listening
+            const introVideo = document.getElementById('intro-video');
+            const idleVideo = document.getElementById('idle-video');
+            const answerVideo = document.getElementById('answer-video-bg');
+
+            if (introVideo) {
+                // Show intro, hide others
+                introVideo.style.display = 'block';
+                idleVideo.style.display = 'none';
+                answerVideo.style.display = 'none';
+
+                // Try unmuted; fallback muted if blocked
+                introVideo.muted = false;
+                try { await introVideo.play(); } catch (_) { introVideo.muted = true; try { await introVideo.play(); } catch (_) {} }
+
+                introVideo.onended = () => {
+                    introVideo.style.display = 'none';
+                    idleVideo.style.display = 'block';
+                    idleVideo.play();
+                };
+            }
+
+            // Start VAD
+            await startVAD();
+            const btn = document.getElementById('record-btn');
+            btn.innerHTML = '<i class="fas fa-microphone-slash me-2"></i>Disable Voice';
+        }
+
+        async function startVAD() {
+            try {
+                if (!audioStream) {
+                    audioStream = await navigator.mediaDevices.getUserMedia({
+                        audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                    });
+                }
+
+                if (!audioContext) {
+                    audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const source = audioContext.createMediaStreamSource(audioStream);
+                    analyser = audioContext.createAnalyser();
+                    analyser.fftSize = 2048;
+                    source.connect(analyser);
+                }
+
+                vadEnabled = true;
+                // In VAD mode, keep a single toggle button
+                document.getElementById('stop-btn').style.display = 'none';
+
+                const dataArray = new Uint8Array(analyser.fftSize);
+                const SPEECH_THRESHOLD = 10; // simple amplitude threshold
+                const MIN_SPEECH_FRAMES = 12; // ~200ms min to ensure real speech before starting
+                const SILENCE_MS = 2000; // require 2 seconds of silence to stop
+                let speechCounter = 0;
+                let currentlyRecording = false;
+                let lastSpeechAt = performance.now();
+
+                const vadLoop = () => {
+                    if (!vadEnabled) return;
+                    analyser.getByteTimeDomainData(dataArray);
+                    // Compute peak deviation from midline (128)
+                    let peak = 0;
+                    for (let i = 0; i < dataArray.length; i++) {
+                        const v = Math.abs(dataArray[i] - 128);
+                        if (v > peak) peak = v;
+                    }
+
+                    const now = performance.now();
+                    if (peak > SPEECH_THRESHOLD) {
+                        speechCounter++;
+                        lastSpeechAt = now;
+                    }
+
+                    // Start immediately on first speech frame to avoid clipping the first word
+                    if (!currentlyRecording && peak > SPEECH_THRESHOLD) {
+                        speechCounter = 0; // reset debounce counter
+                        startRecordingWithStream(audioStream);
+                        currentlyRecording = true;
+                    }
+
+                    // Stop only after sustained silence of SILENCE_MS
+                    if (currentlyRecording && (now - lastSpeechAt) >= SILENCE_MS) {
+                        stopRecording();
+                        currentlyRecording = false;
+                        speechCounter = 0;
+                    }
+
+                    vadRafId = requestAnimationFrame(vadLoop);
+                };
+
+                vadLoop();
+            } catch (err) {
+                console.error('VAD init failed:', err);
+                alert('Unable to access microphone for hands-free mode.');
+            }
+        }
+
+        function pauseCurrentVideo() {
+            // Pause whichever video is currently playing
+            const idleVideo = document.getElementById('idle-video');
+            const introVideo = document.getElementById('intro-video');
+            const answerVideo = document.getElementById('answer-video-bg');
+
+            if (introVideo && introVideo.style.display !== 'none' && !introVideo.paused) {
+                introVideo.pause();
+                console.log('Paused intro video due to voice detection');
+            } else if (answerVideo && answerVideo.style.display !== 'none' && !answerVideo.paused) {
+                answerVideo.pause();
+                console.log('Paused answer video due to voice detection');
+            } else if (idleVideo && idleVideo.style.display !== 'none' && !idleVideo.paused) {
+                idleVideo.pause();
+                console.log('Paused idle video due to voice detection');
+            }
+        }
+
+        function startRecordingWithStream(stream) {
+            try {
+                // Pause the current video when voice is detected
+                pauseCurrentVideo();
+
+                // Switch back to idle background
+                switchToIdleVideo();
+
+                // Setup MediaRecorder using existing logic
+                let mimeType = 'audio/webm';
+                if (!MediaRecorder.isTypeSupported(mimeType)) {
+                    mimeType = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' : (MediaRecorder.isTypeSupported('audio/wav') ? 'audio/wav' : '');
+                }
+                if (!mimeType) return;
+
+                mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                    }
+                };
+
+                mediaRecorder.onerror = (event) => {
+                    console.error('MediaRecorder error:', event.error);
+                };
+
+                mediaRecorder.onstop = () => {
+                    processAudio();
+                };
+
+                mediaRecorder.start(100);
+                isRecording = true;
+
+                // Show recording indicator
+                let indicator = document.querySelector('.recording-indicator');
+                if (!indicator) {
+                    indicator = document.createElement('div');
+                    indicator.className = 'recording-indicator';
+                    indicator.innerHTML = '<i class="fas fa-circle me-2"></i><strong>Recording... Speak now!</strong>';
+                    document.body.appendChild(indicator);
+                }
+                indicator.style.display = 'block';
+            } catch (e) {
+                console.error('startRecordingWithStream error:', e);
+            }
+        }
+
+        function disableVoice() {
+            vadEnabled = false;
+            if (vadRafId) cancelAnimationFrame(vadRafId);
+            if (mediaRecorder && isRecording) {
+                try { mediaRecorder.stop(); } catch (_) {}
+                isRecording = false;
+            }
+            const indicator = document.querySelector('.recording-indicator');
+            if (indicator) indicator.style.display = 'none';
+            const btn = document.getElementById('record-btn');
+            btn.innerHTML = '<i class="fas fa-microphone me-2"></i>Enable Voice';
+        }
+        function toggleTextMode() {
+            isVoiceMode = !isVoiceMode;
+            const textSection = document.getElementById('text-input-section');
+            const voiceControls = document.querySelector('.voice-controls');
+            const modeToggleBtn = document.getElementById('mode-toggle-btn');
+
+            if (isVoiceMode) {
+                // Switch to voice mode
+                textSection.style.display = 'none';
+                voiceControls.style.display = 'block';
+                // Update button to show "Text Mode" (what you'll switch to)
+                modeToggleBtn.innerHTML = '<i class="fas fa-keyboard me-2"></i>Text Mode';
+            } else {
+                // Switch to text mode
+                textSection.style.display = 'block';
+                voiceControls.style.display = 'none';
+                // Update button to show "Voice Mode" (what you'll switch to)
+                modeToggleBtn.innerHTML = '<i class="fas fa-microphone me-2"></i>Voice Mode';
+            }
+        }
+
+        async function startRecording() {
+            try {
+                // Pause current video when starting manual recording
+                pauseCurrentVideo();
+
+                // Keep conversation panel visible during speech mode
+                // User can toggle chat visibility as needed
+
+                // Switch back to idle video when starting a new question
+                switchToIdleVideo();
+
+                console.log('Requesting microphone access...');
+                const stream = await navigator.mediaDevices.getUserMedia({
+                    audio: {
+                        echoCancellation: true,
+                        noiseSuppression: true,
+                        autoGainControl: true
+                    }
+                });
+
+                console.log('Microphone access granted');
+
+                // Try to use WebM format (most compatible with browsers)
+                let mimeType = 'audio/webm';
+                if (!MediaRecorder.isTypeSupported(mimeType)) {
+                    console.log('WebM not supported, trying alternatives...');
+                    // Fallback to other formats if WebM is not supported
+                    mimeType = MediaRecorder.isTypeSupported('audio/mp4') ? 'audio/mp4' :
+                              MediaRecorder.isTypeSupported('audio/wav') ? 'audio/wav' : '';
+                }
+
+                if (!mimeType) {
+                    alert('No supported audio format found. Please try a different browser.');
+                    return;
+                }
+
+                console.log('Using MIME type:', mimeType);
+
+                mediaRecorder = new MediaRecorder(stream, { mimeType: mimeType });
+                audioChunks = [];
+
+                mediaRecorder.ondataavailable = (event) => {
+                    if (event.data.size > 0) {
+                        audioChunks.push(event.data);
+                        console.log('Audio chunk received:', event.data.size, 'bytes');
+                    }
+                };
+
+                mediaRecorder.onerror = (event) => {
+                    console.error('MediaRecorder error:', event.error);
+                    alert('Recording error: ' + event.error.message);
+                };
+
+                mediaRecorder.onstop = () => {
+                    console.log('Recording stopped, processing audio...');
+                    stream.getTracks().forEach(track => track.stop());
+                    processAudio();
+                };
+
+                mediaRecorder.start(100); // Collect data every 100ms
+                isRecording = true;
+
+                // Update UI
+                document.getElementById('record-btn').style.display = 'none';
+                document.getElementById('stop-btn').style.display = 'inline-block';
+
+                // Show recording indicator
+                let indicator = document.querySelector('.recording-indicator');
+                if (!indicator) {
+                    indicator = document.createElement('div');
+                    indicator.className = 'recording-indicator';
+                    indicator.innerHTML = '<i class="fas fa-circle me-2"></i><strong>Recording... Speak now!</strong>';
+                    document.body.appendChild(indicator);
+                }
+                indicator.style.display = 'block';
+
+            } catch (error) {
+                console.error('Error accessing microphone:', error);
+                alert('Error accessing microphone. Please check permissions.');
+            }
+        }
+
+        function stopRecording() {
+            if (mediaRecorder && isRecording) {
+                mediaRecorder.stop();
+                isRecording = false;
+
+                // Update UI
+                document.getElementById('record-btn').style.display = 'inline-block';
+                document.getElementById('stop-btn').style.display = 'none';
+
+                // Hide recording indicator
+                const indicator = document.querySelector('.recording-indicator');
+                if (indicator) {
+                    indicator.style.display = 'none';
+                }
+
+                // Show loading indicator
+                let loading = document.querySelector('.loading');
+                if (!loading) {
+                    loading = document.createElement('div');
+                    loading.className = 'loading';
+                    loading.innerHTML = '<div class="spinner"></div> Processing your question...';
+                    document.body.appendChild(loading);
+                }
+                loading.style.display = 'block';
+            }
+        }
+
+        async function processAudio() {
+            if (audioChunks.length === 0) {
+                alert('No audio data recorded. Please try recording again.');
+                document.querySelector('.loading').style.display = 'none';
+                return;
+            }
+
+            const mimeType = mediaRecorder.mimeType || 'audio/webm';
+            const extension = mimeType.includes('webm') ? 'webm' :
+                            mimeType.includes('mp4') ? 'mp4' :
+                            mimeType.includes('wav') ? 'wav' : 'webm';
+
+            console.log('Processing audio:', {
+                mimeType: mimeType,
+                extension: extension,
+                chunks: audioChunks.length,
+                totalSize: audioChunks.reduce((size, chunk) => size + chunk.size, 0)
+            });
+
+            const audioBlob = new Blob(audioChunks, { type: mimeType });
+            const formData = new FormData();
+            formData.append('audio', audioBlob, `recording.${extension}`);
+            formData.append('format', extension);
+
+            try {
+                console.log('Sending audio to server...');
+                const response = await fetch('/api/process_audio', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                console.log('Server response:', response.status, response.statusText);
+
+                const result = await response.json();
+                console.log('Server result:', result);
+
+                if (response.ok) {
+                    displayResult(result);
+                } else {
+                    alert('Server Error: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Network error:', error);
+                alert('Network error while processing audio. Check console for details.');
+            } finally {
+                const loading = document.querySelector('.loading');
+                if (loading) {
+                    loading.style.display = 'none';
+                }
+            }
+        }
+
+        async function searchText() {
+            const query = document.getElementById('text-query').value.trim();
+            if (!query) {
+                alert('Please enter a question.');
+                return;
+            }
+
+            // Keep conversation panel visible during text mode
+            // User can toggle chat visibility as needed
+
+            // Switch back to idle video when starting a new question
+            switchToIdleVideo();
+
+            // Show loading indicator
+            let loading = document.querySelector('.loading');
+            if (!loading) {
+                loading = document.createElement('div');
+                loading.className = 'loading';
+                loading.innerHTML = '<div class="spinner"></div> Processing your question...';
+                document.body.appendChild(loading);
+            }
+            loading.style.display = 'block';
+
+            try {
+                const response = await fetch('/api/search_text', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({ query: query })
+                });
+
+                const result = await response.json();
+                console.log(result)
+
+                if (response.ok) {
+                    displayResult(result);
+                } else {
+                    alert('Error: ' + (result.error || 'Unknown error'));
+                }
+            } catch (error) {
+                console.error('Error searching text:', error);
+                alert('Error searching. Please try again.');
+            } finally {
+                const loading = document.querySelector('.loading');
+                if (loading) {
+                    loading.style.display = 'none';
+                }
+            }
+        }
+
+        function addMessageToConversation(userMessage, botResult) {
+            // Store in local conversation history array
+            conversationHistory.push({
+                timestamp: new Date().toISOString(),
+                user: userMessage,
+                bot: botResult
+            });
+
+            const messagesContainer = document.getElementById('conversation-messages');
+            const welcomeMessage = messagesContainer.querySelector('.welcome-message');
+            if (welcomeMessage) {
+                welcomeMessage.remove();
+            }
+
+            // Add user message
+            const userMessageDiv = document.createElement('div');
+            userMessageDiv.className = 'message user';
+            userMessageDiv.innerHTML = `
+                <div class="message-header">
+                    <i class="fas fa-user me-1"></i>You
+                </div>
+                <div class="message-content">${userMessage}</div>
+            `;
+            messagesContainer.appendChild(userMessageDiv);
+
+            // Add bot response
+            const botMessageDiv = document.createElement('div');
+            botMessageDiv.className = 'message bot';
+            const confidenceBadge = botResult.confidence ? `<span class="badge bg-success ms-2">${botResult.confidence}% match</span>` : '';
+            botMessageDiv.innerHTML = `
+                <div class="message-header">
+                    <i class="fas fa-robot me-1"></i>Assistant ${confidenceBadge}
+                </div>
+                                    <div class="message-content">
+                        <strong>Question:</strong> ${botResult.question}<br>
+                        <strong>Answer:</strong> ${botResult.answer}
+                    </div>
+            `;
+            messagesContainer.appendChild(botMessageDiv);
+
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function loadConversationHistory() {
+            const messagesContainer = document.getElementById('conversation-messages');
+            messagesContainer.innerHTML = '';
+
+            if (conversationHistory.length === 0) {
+                messagesContainer.innerHTML = `
+                    <div class="welcome-message text-center text-muted py-4">
+                        <i class="fas fa-robot fa-2x mb-3"></i>
+                        <p>Welcome to the FAQ Assistant!</p>
+                        <p>Your conversation history will appear here.</p>
+                        <small>Ask questions using voice or text to get started.</small>
+                    </div>
+                `;
+                return;
+            }
+
+            // Display all messages from local conversation history
+            conversationHistory.forEach(item => {
+                // Create user message element
+                const userMessageDiv = document.createElement('div');
+                userMessageDiv.className = 'message user';
+                userMessageDiv.innerHTML = `
+                    <div class="message-header">
+                        <i class="fas fa-user me-1"></i>You
+                    </div>
+                    <div class="message-content">${item.user}</div>
+                `;
+                messagesContainer.appendChild(userMessageDiv);
+
+                // Create bot response element
+                const botMessageDiv = document.createElement('div');
+                botMessageDiv.className = 'message bot';
+                const confidenceBadge = item.bot.confidence ? `<span class="badge bg-success ms-2">${item.bot.confidence}% match</span>` : '';
+                botMessageDiv.innerHTML = `
+                    <div class="message-header">
+                        <i class="fas fa-robot me-1"></i>Assistant ${confidenceBadge}
+                    </div>
+                    <div class="message-content">
+                        <strong>Question:</strong> ${item.bot.question}<br>
+                        <strong>Answer:</strong> ${item.bot.answer}
+                    </div>
+                `;
+                messagesContainer.appendChild(botMessageDiv);
+            });
+
+            // Scroll to bottom
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function clearConversation() {
+            if (confirm('Are you sure you want to clear the conversation history?')) {
+                // Clear local conversation history array
+                conversationHistory = [];
+
+                const messagesContainer = document.getElementById('conversation-messages');
+                messagesContainer.innerHTML = `
+                    <div class="welcome-message text-center text-muted py-4">
+                        <i class="fas fa-robot fa-2x mb-3"></i>
+                        <p>Welcome to the FAQ Assistant!</p>
+                        <p>Your conversation history will appear here.</p>
+                        <small>Ask questions using voice or text to get started.</small>
+                    </div>
+                `;
+            }
+        }
+
+        function displayResult(result) {
+            // Add message to conversation
+            const userMessage = result.transcription || result.query;
+            const botResult = {
+                question: result.question,
+                answer: result.answer,
+                confidence: result.confidence
+            };
+            addMessageToConversation(userMessage, botResult);
+
+            // Handle video - show answer video and hide idle video
+            const idleVideo = document.getElementById('idle-video');
+            const answerVideo = document.getElementById('answer-video-bg');
+            const answerSource = answerVideo.querySelector('source');
+
+            if (result.video_url) {
+                console.log('Loading answer video:', result.video_url);
+
+                // Clear previous event listeners
+                answerVideo.onloadeddata = null;
+                answerVideo.onerror = null;
+                answerVideo.oncanplay = null;
+                answerVideo.onended = null;
+
+                // Set answer video source (but keep it hidden initially)
+                answerSource.src = result.video_url;
+                answerVideo.load();
+
+                // Add event listeners for answer video
+                answerVideo.oncanplay = function() {
+                    console.log('Answer video ready to play - switching now');
+
+                    // Smooth transition: fade out idle, fade in answer
+                    idleVideo.style.opacity = '0';
+                    answerVideo.style.display = 'block';
+                    answerVideo.style.opacity = '1';
+                    answerVideo.play();
+
+                    // Clean up after transition
+                    setTimeout(() => {
+                        idleVideo.style.display = 'none';
+                        idleVideo.style.opacity = '1'; // Reset for next time
+                    }, 300);
+                };
+
+                answerVideo.onloadeddata = function() {
+                    console.log('Answer video loaded successfully');
+                };
+
+                answerVideo.onerror = function() {
+                    console.error('Answer video failed to load:', result.video_url);
+                    // Fallback to idle video
+                    switchToIdleVideo();
+                };
+
+                answerVideo.onended = function() {
+                    console.log('Answer video ended, switching back to idle video');
+                    // Switch back to idle video when answer video ends
+                    switchToIdleVideo();
+                };
+
+                // Hide the video container in chat since we're using background video
+                const videoContainer = document.getElementById('video-container');
+                if (videoContainer) {
+                    videoContainer.style.display = 'none';
+                }
+
+            } else {
+                console.log('No video URL found for this answer, keeping idle video');
+                // Ensure idle video is showing
+                switchToIdleVideo();
+            }
+
+            // Auto-show chat when there's a result (if not already visible)
+            if (!chatVisible) {
+                toggleChat();
+            }
+        }
+
+        function switchToIdleVideo() {
+            const idleVideo = document.getElementById('idle-video');
+            const answerVideo = document.getElementById('answer-video-bg');
+
+            console.log('Switching back to idle video');
+
+            // Smooth transition: fade out answer, fade in idle
+            answerVideo.style.opacity = '0';
+            idleVideo.style.display = 'block';
+            idleVideo.style.opacity = '1';
+
+            // Ensure idle video is still playing (in case it was paused)
+            if (idleVideo.paused) {
+                idleVideo.play();
+            }
+
+            // Clean up after transition
+            setTimeout(() => {
+                answerVideo.style.display = 'none';
+                answerVideo.style.opacity = '1'; // Reset for next time
+            }, 300);
+        }
+
+        // Initialize videos and ensure chat is accessible
+        document.addEventListener('DOMContentLoaded', function() {
+            const idleVideo = document.getElementById('idle-video');
+            const answerVideo = document.getElementById('answer-video-bg');
+            const introVideo = document.getElementById('intro-video');
+            const chatToggle = document.getElementById('chat-toggle');
+
+            // On load, show idle video; intro will be played when enabling voice
+            idleVideo.style.display = 'block';
+            answerVideo.style.display = 'none';
+            if (introVideo) introVideo.style.display = 'none';
+
+            // Conversation panel is hidden by default via CSS (right: -400px)
+
+            // Ensure chat toggle is always accessible
+            chatToggle.style.pointerEvents = 'auto';
+            chatToggle.style.zIndex = '9999';
+
+            // Ensure conversation panel is properly initialized
+            const conversationPanel = document.getElementById('conversation-panel');
+            if (conversationPanel) {
+                conversationPanel.style.right = '-400px';
+                conversationPanel.style.opacity = '1';
+                conversationPanel.style.visibility = 'visible';
+            }
+
+            // Ensure chat toggle is always accessible in all modes
+            chatToggle.addEventListener('click', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                toggleChat();
+            }, true); // capture phase to avoid being swallowed by other handlers
+        });
+
+        // Allow Enter key to submit in text mode
+        document.getElementById('text-query').addEventListener('keypress', function(event) {
+            if (event.key === 'Enter') {
+                searchText();
+            }
+        });
+    </script>
+</body>
+</html>

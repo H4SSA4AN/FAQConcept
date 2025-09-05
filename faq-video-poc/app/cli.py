@@ -11,6 +11,7 @@ from typing import Optional
 from .settings import settings
 from .search import FAQSearch
 from .index_chroma import ChromaIndexer
+from .speech import SpeechToText
 
 
 @click.group()
@@ -67,6 +68,165 @@ def search(ctx, query, limit, threshold):
 
 
 @cli.command()
+@click.option('--max-duration', '-d', default=settings.speech.max_recording_time,
+              help='Maximum recording duration in seconds')
+@click.option('--silence-threshold', '-s', default=settings.speech.silence_threshold,
+              help='Silence threshold in seconds to stop recording')
+@click.option('--limit', '-n', default=settings.app.max_results,
+              help='Maximum number of results to return')
+@click.option('--threshold', '-t', default=settings.app.similarity_threshold,
+              help='Minimum similarity threshold')
+@click.option('--save-audio', is_flag=True, help='Save recorded audio to file')
+@click.option('--audio-file', default='recorded_audio.wav', help='Filename for saved audio')
+@click.pass_context
+def speech(ctx, max_duration, silence_threshold, limit, threshold, save_audio, audio_file):
+    """Search FAQs using voice input with speech-to-text."""
+    try:
+        click.echo("🎤 Initializing speech-to-text engine...")
+        click.echo(f"Using Whisper model: {settings.speech.model_name}")
+        click.echo(f"Language: {settings.speech.language}")
+        click.echo()
+
+        # Initialize speech engine
+        speech_engine = SpeechToText(
+            model_name=settings.speech.model_name,
+            language=settings.speech.language,
+            sample_rate=settings.speech.sample_rate,
+            device_index=settings.speech.device_index,
+            energy_threshold=settings.speech.energy_threshold
+        )
+
+        # Initialize search engine
+        search_engine = FAQSearch(use_chroma=True)
+
+        # Record and transcribe with advanced VAD
+        click.echo("🎙️ Advanced Voice Activity Detection enabled!")
+        click.echo("Say your question clearly - recording starts automatically when speech is detected")
+        click.echo("(Recording will stop automatically when you finish speaking)")
+        click.echo()
+
+        transcribed_text = speech_engine.listen_and_transcribe(
+            max_duration=max_duration,
+            silence_threshold=silence_threshold,
+            save_audio=save_audio,
+            audio_filename=audio_file,
+            min_recording_duration=settings.speech.vad_min_recording_duration,
+            pre_roll_duration=settings.speech.vad_pre_roll_duration
+        )
+
+        if not transcribed_text:
+            click.echo("❌ Failed to transcribe speech. Please try again.", err=True)
+            return
+
+        click.echo(f"📝 You said: '{transcribed_text}'")
+        click.echo()
+
+        # Search for answers
+        click.echo("🔍 Searching for relevant answers...")
+        results = search_engine.search(transcribed_text, limit=limit, threshold=threshold)
+
+        if not results:
+            click.echo(f"No results found for: '{transcribed_text}'")
+            return
+
+        # Display results
+        click.echo(f"\n📋 Found {len(results)} relevant answer(s):\n")
+
+        for i, result in enumerate(results, 1):
+            click.echo(f"{i}. 📖 Question: {result.question}")
+            click.echo(f"   💡 Answer: {result.answer}")
+            click.echo(f"   🏷️  Category: {result.category}")
+            click.echo(f"   📊 Score: {result.score:.3f} (Source: {result.source})")
+            click.echo()
+
+        if save_audio:
+            click.echo(f"💾 Audio saved as: {audio_file}")
+
+    except Exception as e:
+        logger.error(f"Speech search failed: {e}")
+        click.echo(f"Error: {e}", err=True)
+        raise click.Abort()
+
+
+@cli.command()
+@click.pass_context
+def devices(ctx):
+    """List available audio input devices."""
+    try:
+        speech_engine = SpeechToText()
+        devices = speech_engine.list_audio_devices()
+
+        if not devices:
+            click.echo("❌ No audio input devices found")
+            return
+
+        click.echo("🎤 Available audio input devices:\n")
+
+        for device in devices:
+            click.echo(f"  {device}")
+
+        click.echo("\nTo use a specific device, set AUDIO_DEVICE_INDEX environment variable")
+        click.echo("Example: export AUDIO_DEVICE_INDEX=1")
+
+    except Exception as e:
+        logger.error(f"Failed to list devices: {e}")
+        click.echo(f"Error: {e}", err=True)
+        raise click.Abort()
+
+
+@cli.command()
+@click.option('--max-duration', '-d', default=settings.speech.max_recording_time,
+              help='Maximum recording duration in seconds')
+@click.option('--save-audio', is_flag=True, default=True, help='Save recorded audio to file')
+@click.option('--audio-file', default='recorded_audio.wav', help='Filename for saved audio')
+@click.pass_context
+def record(ctx, max_duration, save_audio, audio_file):
+    """Record audio manually and transcribe it (press Enter to start/stop)."""
+    try:
+        click.echo("🎤 Initializing speech-to-text engine...")
+        click.echo(f"Using Whisper model: {settings.speech.model_name}")
+        click.echo(f"Language: {settings.speech.language}")
+        click.echo()
+
+        # Initialize speech engine
+        speech_engine = SpeechToText(
+            model_name=settings.speech.model_name,
+            language=settings.speech.language,
+            sample_rate=settings.speech.sample_rate,
+            device_index=settings.speech.device_index,
+            energy_threshold=settings.speech.energy_threshold
+        )
+
+        # Record and transcribe manually
+        click.echo("🎙️ Manual recording mode:")
+        click.echo("  1. Press Enter to START recording")
+        click.echo("  2. Speak your message")
+        click.echo("  3. Press Enter again to STOP recording")
+        click.echo("  4. Audio will be saved and transcribed")
+        click.echo()
+
+        transcribed_text = speech_engine.record_and_transcribe_manual(
+            max_duration=max_duration,
+            save_audio=save_audio,
+            audio_filename=audio_file
+        )
+
+        if not transcribed_text:
+            click.echo("❌ Failed to transcribe audio.", err=True)
+            return
+
+        click.echo(f"\n📝 Transcription: '{transcribed_text}'")
+
+        if save_audio:
+            click.echo(f"💾 Audio saved as: {audio_file}")
+
+    except Exception as e:
+        logger.error(f"Recording failed: {e}")
+        click.echo(f"Error: {e}", err=True)
+        raise click.Abort()
+
+
+@cli.command()
 @click.option('--csv-path', help='Path to FAQ CSV file')
 @click.pass_context
 def seed(ctx, csv_path):
@@ -82,7 +242,7 @@ def seed(ctx, csv_path):
 
         # Load CSV data
         click.echo(f"Loading FAQ data from: {csv_path}")
-        faqs_df = pd.read_csv(csv_path)
+        faqs_df = pd.read_csv(csv_path, encoding='utf-8')
         click.echo(f"Loaded {len(faqs_df)} FAQs")
 
         # Seed Chroma database

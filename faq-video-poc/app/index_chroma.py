@@ -70,9 +70,13 @@ class ChromaIndexer:
         try:
             logger.info(f"Adding {len(faqs_df)} FAQs to Chroma collection")
 
-            # Ensure collection exists
+            # Ensure collection exists and is properly initialized
             if self.collection is None:
-                raise RuntimeError("Collection not initialized")
+                logger.info("Collection not initialized, initializing...")
+                self._initialize_client()
+
+            if self.collection is None:
+                raise RuntimeError("Failed to initialize collection")
 
             # Prepare data
             documents = []
@@ -81,22 +85,34 @@ class ChromaIndexer:
             ids = []
 
             for _, row in faqs_df.iterrows():
-                # Combine question and answer for better search
-                document = f"Question: {row['question']}\nAnswer: {row['answer']}"
+                # Create two documents: question-only (higher weight) and question+answer
+                question_only_doc = f"Question: {row['question']}"
+                question_answer_doc = f"Question: {row['question']}\nAnswer: {row['answer']}"
 
-                metadata = {
+                base_metadata = {
                     "question": row["question"],
                     "answer": row["answer"],
                     "category": row.get("category", "General"),
-                    "id": str(row["id"])
+                    "id": str(row["id"]),
+                    "answer__url": row.get("answer__url", "")
                 }
 
-                documents.append(document)
-                metadatas.append(metadata)
+                # Question-only entry (type=question_only) for stronger question intent matching
+                documents.append(question_only_doc)
+                qo_meta = dict(base_metadata)
+                qo_meta["entry_type"] = "question_only"
+                metadatas.append(qo_meta)
                 ids.append(str(uuid.uuid4()))
 
-            # Compute embeddings for all documents
-            logger.debug("Computing embeddings for all documents")
+                # Question+Answer entry (type=qa)
+                documents.append(question_answer_doc)
+                qa_meta = dict(base_metadata)
+                qa_meta["entry_type"] = "qa"
+                metadatas.append(qa_meta)
+                ids.append(str(uuid.uuid4()))
+
+            # Compute embeddings; apply simple weighting by repeating question-only entries
+            logger.debug("Computing embeddings for all documents (with question prioritization)")
             document_embeddings = self.embedder.encode_batch(documents, normalize=True)
             embeddings = document_embeddings.tolist()
 
@@ -158,6 +174,8 @@ class ChromaIndexer:
         try:
             self.client.delete_collection(name=self.collection_name)
             logger.info(f"Deleted collection: {self.collection_name}")
+            # Reset the collection object to None so it gets reinitialized
+            self.collection = None
         except Exception as e:
             logger.error(f"Failed to delete collection: {e}")
             raise
@@ -165,9 +183,13 @@ class ChromaIndexer:
     def get_collection_info(self) -> Dict[str, Any]:
         """Get information about the collection."""
         try:
-            # Ensure collection exists
+            # Ensure collection exists and is properly initialized
             if self.collection is None:
-                raise RuntimeError("Collection not initialized")
+                logger.info("Collection not initialized, initializing...")
+                self._initialize_client()
+
+            if self.collection is None:
+                raise RuntimeError("Failed to initialize collection")
 
             count = self.collection.count()
             return {

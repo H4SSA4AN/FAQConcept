@@ -20,6 +20,17 @@ tqdm>=4.64.0
 transformers>=4.21.0
 torch>=1.12.0
 
-# Optional: For web interface
+# Speech-to-text with Whisper v3 Turbo
+openai-whisper>=20231117
+sounddevice>=0.4.6
+scipy>=1.7.0
+
+# Web interface
+Flask>=2.3.0
+pydub>=0.25.1
 fastapi>=0.100.0
 uvicorn>=0.23.0
+
+# Web application dependencies
+Flask>=2.3.0
+Werkzeug>=2.3.0

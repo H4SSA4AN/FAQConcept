@@ -49,11 +49,31 @@ class WebRTCConfig:
 
 
 @dataclass
+class SpeechConfig:
+    """Speech-to-text configuration."""
+    model_name: str = "turbo"  # Options: "tiny", "base", "small", "medium", "large", "turbo"
+    language: str = "en"  # Language code, None for auto-detection
+    sample_rate: int = 16000  # Audio sample rate
+    chunk_duration: float = 0.1  # Duration of audio chunks for processing (smaller = more responsive)
+    silence_threshold: float = 0.8  # Silence duration to stop recording (seconds)
+    max_recording_time: int = 30  # Maximum recording time in seconds
+    device_index: Optional[int] = None  # Audio device index, None for default
+    energy_threshold: int = 300  # Legacy energy threshold (for compatibility)
+
+    # Advanced VAD (Voice Activity Detection) settings
+    vad_min_recording_duration: float = 1.0  # Minimum recording duration to keep (seconds)
+    vad_pre_roll_duration: float = 0.2  # Amount of pre-roll audio to include (seconds)
+    vad_noise_floor: float = 0.001  # Minimum noise floor for adaptive threshold
+    vad_min_speech_frames: int = 3  # Min consecutive speech frames to start recording
+    vad_min_silence_frames: int = 8  # Min consecutive silence frames to stop recording
+
+
+@dataclass
 class AppConfig:
     """Main application configuration."""
     log_level: str = "INFO"
     max_results: int = 5
-    similarity_threshold: float = 0.7
+    similarity_threshold: float = 0.3
 
 
 class Settings:
@@ -84,10 +104,27 @@ class Settings:
             video_fps=int(os.getenv("VIDEO_FPS", "30"))
         )
 
+        self.speech = SpeechConfig(
+            model_name=os.getenv("WHISPER_MODEL", "turbo"),
+            language=os.getenv("WHISPER_LANGUAGE", "en"),
+            sample_rate=int(os.getenv("AUDIO_SAMPLE_RATE", "16000")),
+            chunk_duration=float(os.getenv("AUDIO_CHUNK_DURATION", "0.1")),
+            silence_threshold=float(os.getenv("SILENCE_THRESHOLD", "0.8")),
+            max_recording_time=int(os.getenv("MAX_RECORDING_TIME", "30")),
+            device_index=int(os.getenv("AUDIO_DEVICE_INDEX")) if os.getenv("AUDIO_DEVICE_INDEX") else None,
+            energy_threshold=int(os.getenv("ENERGY_THRESHOLD", "300")),
+            # Advanced VAD settings
+            vad_min_recording_duration=float(os.getenv("VAD_MIN_RECORDING_DURATION", "1.0")),
+            vad_pre_roll_duration=float(os.getenv("VAD_PRE_ROLL_DURATION", "0.2")),
+            vad_noise_floor=float(os.getenv("VAD_NOISE_FLOOR", "0.001")),
+            vad_min_speech_frames=int(os.getenv("VAD_MIN_SPEECH_FRAMES", "3")),
+            vad_min_silence_frames=int(os.getenv("VAD_MIN_SILENCE_FRAMES", "8"))
+        )
+
         self.app = AppConfig(
             log_level=os.getenv("LOG_LEVEL", "INFO"),
             max_results=int(os.getenv("MAX_RESULTS", "5")),
-            similarity_threshold=float(os.getenv("SIMILARITY_THRESHOLD", "0.7"))
+            similarity_threshold=float(os.getenv("SIMILARITY_THRESHOLD", "0.3"))
         )
 
     @property
