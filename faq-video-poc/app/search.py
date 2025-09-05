@@ -11,6 +11,7 @@ import re
 from .settings import settings
 from .embed import TextEmbedder
 from .index_chroma import ChromaIndexer
+from .utils import log_answered_question
 
 
 @dataclass
@@ -87,6 +88,11 @@ class FAQSearch:
         if threshold is None:
             threshold = settings.app.similarity_threshold
 
+        # Tokenize user query for reranking and primary clause strategy
+        user_tokens = re.findall(r"\w+", query.lower())
+        user_len = len(user_tokens)
+        user_token_set = set(user_tokens)
+
         logger.info(f"Searching for: '{query}' (limit={limit}, threshold={threshold})")
 
         all_results = []
@@ -99,7 +105,8 @@ class FAQSearch:
                 full_results = self._search_chroma(query, initial_k)
                 all_results.extend(full_results)
 
-                primary_query = self._extract_primary_clause(query)
+                # For long queries, avoid truncating to a short primary clause
+                primary_query = self._extract_primary_clause(query) if user_len <= 14 else None
                 primary_results = []
                 if primary_query and primary_query != query:
                     primary_results = self._search_chroma(primary_query, initial_k)
@@ -134,7 +141,8 @@ class FAQSearch:
                     by_id[faq_id]['best_meta'] = r
 
         # Split back out full and primary lists from all_results
-        primary_query = self._extract_primary_clause(query)
+        # Recompute with long-query protection
+        primary_query = self._extract_primary_clause(query) if user_len <= 14 else None
         initial_k = max(30, settings.app.max_results * 5)
         full_results = self._search_chroma(query, initial_k) if (self.use_chroma and self.chroma_indexer) else []
         primary_results = self._search_chroma(primary_query, initial_k) if (self.use_chroma and self.chroma_indexer and primary_query and primary_query != query) else []
@@ -156,11 +164,45 @@ class FAQSearch:
                     metadata=base_result.metadata
                 ))
 
-        # Sort by combined score and trim to app max
-        combined.sort(key=lambda x: x.score, reverse=True)
+        # Lightweight reranking: favor overlap and length for long queries,
+        # penalize generic "where can i find" when user expresses inability
+        stop_words = {
+            "the","a","an","to","for","of","and","or","in","on","at","is","are","was","were",
+            "be","can","i","you","we","they","it","do","does","did","what","where","when","how"
+        }
+        key_terms = [t for t in user_tokens if t not in stop_words]
+        key_set = set(key_terms)
+        neg_intent = any(t in {"dont","don't","not","cant","can't","cannot","unable","manage"} for t in user_tokens)
+
+        def coverage_ratio(text: str) -> float:
+            ft = set(re.findall(r"\w+", (text or "").lower()))
+            return len(key_set & ft) / (len(key_set) or 1)
+
+        for r in combined:
+            cov = coverage_ratio(r.question)
+            faq_len = len(re.findall(r"\w+", (r.question or "").lower()))
+            len_bonus = min(1.0, faq_len / (user_len or 1))
+            rerank = r.score + 0.30 * cov
+            if user_len >= 12:
+                rerank += 0.10 * len_bonus
+            if neg_intent and (r.question or "").lower().startswith("where can i find"):
+                rerank -= 0.15
+            r._rerank = rerank
+
+        combined.sort(key=lambda x: (getattr(x, "_rerank", x.score), x.score), reverse=True)
         final_results = combined[:settings.app.max_results]
 
         logger.info(f"Found {len(final_results)} results above threshold {threshold}")
+
+        # Log answered questions to CSV
+        if final_results:
+            for result in final_results:
+                log_answered_question(
+                    user_question=query,
+                    matched_question=result.question,
+                    accuracy_score=result.score
+                )
+
         return final_results
 
     def _search_chroma(self, query: str, limit: int) -> List[SearchResult]:

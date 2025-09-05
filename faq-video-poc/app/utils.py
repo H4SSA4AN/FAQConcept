@@ -5,8 +5,10 @@ Utility functions for FAQ Video POC.
 import os
 import re
 import pandas as pd
+import csv
 from pathlib import Path
 from typing import List, Dict, Any, Optional
+from datetime import datetime
 from loguru import logger
 
 
@@ -242,4 +244,55 @@ def load_env_file(env_path: Optional[str] = None) -> bool:
         return False
     except Exception as e:
         logger.error(f"Failed to load .env file: {e}")
+        return False
+
+
+def log_answered_question(user_question: str, matched_question: str, accuracy_score: float,
+                         csv_path: str = "data/answered_questions.csv") -> bool:
+    """
+    Log an answered question to CSV file.
+
+    Args:
+        user_question: The user's original question
+        matched_question: The matched question from the FAQ database
+        accuracy_score: The similarity/accuracy score
+        csv_path: Path to the CSV file
+
+    Returns:
+        True if logged successfully, False otherwise
+    """
+    try:
+        # Ensure data directory exists
+        csv_file = Path(csv_path)
+        csv_file.parent.mkdir(parents=True, exist_ok=True)
+
+        # Check if file exists to determine if we need headers
+        file_exists = csv_file.exists()
+
+        # Prepare the data
+        timestamp = datetime.now().isoformat()
+        data = {
+            'timestamp': timestamp,
+            'user_question': user_question,
+            'matched_question': matched_question,
+            'accuracy_score': round(accuracy_score, 4)
+        }
+
+        # Write to CSV
+        with open(csv_file, 'a', newline='', encoding='utf-8') as csvfile:
+            fieldnames = ['timestamp', 'user_question', 'matched_question', 'accuracy_score']
+            writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+
+            # Write header if file is new
+            if not file_exists:
+                writer.writeheader()
+
+            # Write the answered question
+            writer.writerow(data)
+
+        logger.info(f"✅ Logged answered question: '{user_question}' -> '{matched_question}' (score: {accuracy_score:.4f})")
+        return True
+
+    except Exception as e:
+        logger.error(f"❌ Failed to log answered question: {e}")
         return False

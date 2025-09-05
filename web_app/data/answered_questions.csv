@@ -1,0 +1,28 @@
+timestamp,user_question,matched_question,accuracy_score
+2025-09-05T12:15:15.908779,financial support,What financial support is available?,0.3254
+2025-09-05T12:15:34.203010,I can't find a placement. What happens next?,Where can I find placements?,0.6018
+2025-09-05T12:16:04.945489,What happens if i can't find a placement by the end of the year?,I'm not sure if I'm going to do a placement year. When do I have to decide by?,0.4739
+2025-09-05T12:16:42.980293,What happens if i am unable to find a placement by september?,How long does my placement have to be?,0.3208
+2025-09-05T12:19:46.705534,"If you dont manage to find a placement, what happens?",Where can I find placements?,0.3806
+2025-09-05T12:19:46.706300,"If you dont manage to find a placement, what happens?",How long does my placement have to be?,0.3701
+2025-09-05T12:19:46.706753,"If you dont manage to find a placement, what happens?","If you don't manage to find a placement, what are the steps to take from there? Do you go straight into your final year, or can you find an internship or something like that?",0.3245
+2025-09-05T12:35:44.888394,"If you dont manage to find a placement, what happens?","If you don't manage to find a placement, what are the steps to take from there? Do you go straight into your final year, or can you find an internship or something like that?",0.3245
+2025-09-05T12:35:44.889085,"If you dont manage to find a placement, what happens?",How long does my placement have to be?,0.3701
+2025-09-05T12:35:44.889763,"If you dont manage to find a placement, what happens?",Where can I find placements?,0.3806
+2025-09-05T12:36:43.934069,Is there a list of companies that give placements?,Do you have a list of companies that offer placements / have taken students in the past or do we just have to look online ourselves?,0.35
+2025-09-05T12:36:43.934720,Is there a list of companies that give placements?,Where can I find placements?,0.4078
+2025-09-05T12:36:43.935650,Is there a list of companies that give placements?,What roles / jobs are accepted as placements?,0.3738
+2025-09-05T12:37:07.844490,What jobs count as placement?,What roles / jobs are accepted as placements?,0.7017
+2025-09-05T12:37:07.845145,What jobs count as placement?,Are placements usually voluntary or can you get some paid placements too?,0.3159
+2025-09-05T12:37:26.566815,When do i have to decide to do a placement?,I'm not sure if I'm going to do a placement year. When do I have to decide by?,0.7108
+2025-09-05T12:37:26.567670,When do i have to decide to do a placement?,How long does my placement have to be?,0.6518
+2025-09-05T12:37:26.568095,When do i have to decide to do a placement?,When should a part A student start looking for placements?,0.6664
+2025-09-05T12:37:26.568525,When do i have to decide to do a placement?,Where can I find placements?,0.4272
+2025-09-05T12:37:48.611755,Are there placements for first years?,Lots of placement require 2nd / 3rd year students. Do there have placements who accept 1st years students?,0.5906
+2025-09-05T12:37:48.612259,Are there placements for first years?,When should a part A student start looking for placements?,0.4081
+2025-09-05T12:37:48.612655,Are there placements for first years?,I'm not sure if I'm going to do a placement year. When do I have to decide by?,0.3716
+2025-09-05T12:39:22.695192,Where can i find placements,Where can I find placements?,0.4137
+2025-09-05T12:39:35.399995,Where can I find placements?,Where can I find placements?,1.0404
+2025-09-05T12:39:35.400466,Where can I find placements?,Do you have a list of companies that offer placements / have taken students in the past or do we just have to look online ourselves?,0.3751
+2025-09-05T12:39:39.839943,Where can I find placements?,Where can I find placements?,1.0404
+2025-09-05T12:39:39.840414,Where can I find placements?,Do you have a list of companies that offer placements / have taken students in the past or do we just have to look online ourselves?,0.3751
