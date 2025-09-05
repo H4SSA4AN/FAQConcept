@@ -1,0 +1,5 @@
+timestamp,user_question,matched_question,accuracy_score
+
+2025-09-05T12:39:22.695812,Where can i find placements,Where can I find placements?,0.4137
+2025-09-05T12:39:35.400879,Where can I find placements?,Where can I find placements?,1.0404
+2025-09-05T12:39:39.840841,Where can I find placements?,Where can I find placements?,1.0404

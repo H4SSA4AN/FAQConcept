@@ -20,6 +20,7 @@ try:
     from app.search import FAQSearch
     from app.settings import settings
     from app.speech import SpeechToText
+    from app.utils import log_answered_question
 except ImportError as e:
     print(f"❌ Failed to import required modules: {e}")
     print("Make sure you're running this from the web_app directory.")
@@ -210,6 +211,14 @@ def process_audio():
         # Get the best result
         best_result = results[0]
 
+        # Log the answered question (using transcribed text as user question)
+        log_answered_question(
+            user_question=transcribed_text,
+            matched_question=best_result.question,
+            accuracy_score=best_result.score,
+            csv_path=str(project_root / "data" / "answered_questions.csv")
+        )
+
         # Check if there's a video URL in metadata
         video_url = None
         if best_result.metadata and 'answer__url' in best_result.metadata:
@@ -276,6 +285,14 @@ def search_text():
 
         # Get the best result
         best_result = results[0]
+
+        # Log the answered question
+        log_answered_question(
+            user_question=query,
+            matched_question=best_result.question,
+            accuracy_score=best_result.score,
+            csv_path=str(project_root / "data" / "answered_questions.csv")
+        )
 
         # Check if there's a video URL in metadata
         video_url = None
