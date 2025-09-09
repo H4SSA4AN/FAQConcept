@@ -178,16 +178,53 @@ class FAQSearch:
             ft = set(re.findall(r"\w+", (text or "").lower()))
             return len(key_set & ft) / (len(key_set) or 1)
 
+        # Heuristics to align intent with phrasing
+        user_text_lower = query.lower().strip()
+        user_tokens_prefix = user_tokens[:2]
+        user_starts_def = user_text_lower.startswith("what is") or user_text_lower.startswith("what's")
+
         for r in combined:
-            cov = coverage_ratio(r.question)
-            faq_len = len(re.findall(r"\w+", (r.question or "").lower()))
+            rq = (r.question or "").lower()
+            cov = coverage_ratio(rq)
+            faq_len = len(re.findall(r"\w+", rq))
             len_bonus = min(1.0, faq_len / (user_len or 1))
             rerank = r.score + 0.30 * cov
+            adjustments = []
+            
             if user_len >= 12:
                 rerank += 0.10 * len_bonus
-            if neg_intent and (r.question or "").lower().startswith("where can i find"):
+                adjustments.append(f"len_bonus:+{0.10 * len_bonus:.3f}")
+            
+            # Penalize generic locator when user expresses inability
+            if neg_intent and rq.startswith("where can i find"):
                 rerank -= 0.15
+                adjustments.append("neg_intent:-0.150")
+            
+            # Prefer matches that share the same opening phrase (e.g., "what is ...")
+            cand_tokens = re.findall(r"\w+", rq)
+            cand_prefix = cand_tokens[:2]
+            if user_starts_def:
+                cand_starts_def = rq.startswith("what is") or rq.startswith("what's")
+                if cand_starts_def:
+                    rerank += 0.12
+                    adjustments.append("def_match:+0.120")
+                # Deprioritize uncertain/self-referential phrasing for definitional queries
+                if any(p in rq for p in ["i'm not sure", "i am not sure", "not sure", "unsure"]):
+                    rerank -= 0.12
+                    adjustments.append("uncertain:-0.120")
+            
+            # Small boost if first token(s) align
+            if user_tokens_prefix and cand_prefix and user_tokens_prefix[0] == cand_prefix[0]:
+                rerank += 0.05
+                adjustments.append("prefix1:+0.050")
+            if len(user_tokens_prefix) == 2 and len(cand_prefix) == 2 and user_tokens_prefix == cand_prefix:
+                rerank += 0.05
+                adjustments.append("prefix2:+0.050")
+
             r._rerank = rerank
+            
+            # Log reranking details
+            logger.info(f"Rerank: '{r.question[:50]}...' | Original: {r.score:.4f} | Coverage: {cov:.3f} | Adjustments: {', '.join(adjustments) if adjustments else 'none'} | Final: {rerank:.4f}")
 
         combined.sort(key=lambda x: (getattr(x, "_rerank", x.score), x.score), reverse=True)
         final_results = combined[:settings.app.max_results]
