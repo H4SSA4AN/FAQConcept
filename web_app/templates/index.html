@@ -330,6 +330,19 @@
 
     <!-- Voice Controls -->
     <div class="voice-controls">
+        <div class="mb-2">
+            <div class="btn-group" role="group" aria-label="STT Provider">
+                <input type="radio" class="btn-check" name="providerOptions" id="providerOpenAI" autocomplete="off">
+                <label class="btn btn-outline-primary" for="providerOpenAI"><i class="fa-solid fa-cloud me-1"></i>OpenAI API</label>
+
+                <input type="radio" class="btn-check" name="providerOptions" id="providerWhisper" autocomplete="off">
+                <label class="btn btn-outline-primary" for="providerWhisper"><i class="fa-solid fa-computer me-1"></i>Local Whisper</label>
+            </div>
+            <div class="form-check form-switch d-inline-block ms-3">
+                <input class="form-check-input" type="checkbox" id="skipIntro">
+                <label class="form-check-label" for="skipIntro">Skip Intro</label>
+            </div>
+        </div>
         <button id="record-btn" class="btn btn-primary btn-lg" onclick="toggleVoice()">
             <i class="fas fa-microphone me-2"></i>
             Enable Voice
@@ -439,8 +452,9 @@
             const introVideo = document.getElementById('intro-video');
             const idleVideo = document.getElementById('idle-video');
             const answerVideo = document.getElementById('answer-video-bg');
+            const skipIntro = (document.getElementById('skipIntro') && document.getElementById('skipIntro').checked);
 
-            if (introVideo) {
+            if (introVideo && !skipIntro) {
                 // Show intro, hide others
                 introVideo.style.display = 'block';
                 idleVideo.style.display = 'none';
@@ -455,6 +469,14 @@
                     idleVideo.style.display = 'block';
                     idleVideo.play();
                 };
+            } else {
+                // Skip intro: ensure idle is visible and answer hidden
+                if (introVideo) introVideo.style.display = 'none';
+                idleVideo.style.display = 'block';
+                answerVideo.style.display = 'none';
+                if (idleVideo.paused) {
+                    try { idleVideo.play(); } catch (_) {}
+                }
             }
 
             // Start VAD
@@ -763,6 +785,7 @@
             const formData = new FormData();
             formData.append('audio', audioBlob, `recording.${extension}`);
             formData.append('format', extension);
+            formData.append('provider', getSelectedProvider());
 
             try {
                 console.log('Sending audio to server...');
@@ -871,7 +894,8 @@
             // Add bot response
             const botMessageDiv = document.createElement('div');
             botMessageDiv.className = 'message bot';
-            const confidenceBadge = botResult.confidence ? `<span class="badge bg-success ms-2">${botResult.confidence}% match</span>` : '';
+            const timingBadge = (botResult.elapsed_ms !== undefined) ? `<span class="badge bg-secondary ms-2">${botResult.elapsed_ms} ms</span>` : '';
+            const confidenceBadge = (botResult.confidence !== undefined && botResult.confidence !== null) ? `<span class=\"badge bg-success ms-2\">${botResult.confidence}% match</span>${timingBadge}` : timingBadge;
             botMessageDiv.innerHTML = `
                 <div class="message-header">
                     <i class="fas fa-robot me-1"></i>Assistant ${confidenceBadge}
@@ -919,7 +943,8 @@
                 // Create bot response element
                 const botMessageDiv = document.createElement('div');
                 botMessageDiv.className = 'message bot';
-                const confidenceBadge = item.bot.confidence ? `<span class="badge bg-success ms-2">${item.bot.confidence}% match</span>` : '';
+                const timingBadge = (item.bot.elapsed_ms !== undefined) ? `<span class=\"badge bg-secondary ms-2\">${item.bot.elapsed_ms} ms</span>` : '';
+                const confidenceBadge = (item.bot.confidence !== undefined && item.bot.confidence !== null) ? `<span class=\"badge bg-success ms-2\">${item.bot.confidence}% match</span>${timingBadge}` : timingBadge;
                 botMessageDiv.innerHTML = `
                     <div class="message-header">
                         <i class="fas fa-robot me-1"></i>Assistant ${confidenceBadge}
@@ -954,14 +979,54 @@
         }
 
         function displayResult(result) {
-            // Add message to conversation
             const userMessage = result.transcription || result.query;
-            const botResult = {
-                question: result.question,
-                answer: result.answer,
-                confidence: result.confidence
-            };
-            addMessageToConversation(userMessage, botResult);
+            if (result.mode === 'suggest' && result.candidates && result.candidates.length) {
+                // Build a suggestion list message
+                const suggestions = result.candidates.map((c, idx) => `(${idx+1}) ${c.question} <span class="badge bg-secondary ms-1">${c.confidence}%</span>`).join('<br>');
+                const botResult = {
+                    question: 'Did you mean:',
+                    answer: suggestions,
+                    confidence: undefined,
+                    elapsed_ms: result.elapsed_ms
+                };
+                addMessageToConversation(userMessage, botResult);
+                // Play provided video (e.g., no-answer video) if available
+                const idleVideo = document.getElementById('idle-video');
+                const answerVideo = document.getElementById('answer-video-bg');
+                const answerSource = answerVideo.querySelector('source');
+                if (result.video_url) {
+                    // Reset listeners
+                    answerVideo.onloadeddata = null;
+                    answerVideo.onerror = null;
+                    answerVideo.oncanplay = null;
+                    answerVideo.onended = null;
+
+                    answerSource.src = result.video_url;
+                    answerVideo.load();
+                    answerVideo.oncanplay = function() {
+                        idleVideo.style.opacity = '0';
+                        answerVideo.style.display = 'block';
+                        answerVideo.style.opacity = '1';
+                        answerVideo.play();
+                        setTimeout(() => {
+                            idleVideo.style.display = 'none';
+                            idleVideo.style.opacity = '1';
+                        }, 300);
+                    };
+                    answerVideo.onended = function() { switchToIdleVideo(); };
+                } else {
+                    switchToIdleVideo();
+                }
+                return;
+            } else {
+                const botResult = {
+                    question: result.question,
+                    answer: result.answer,
+                    confidence: result.confidence,
+                    elapsed_ms: result.elapsed_ms
+                };
+                addMessageToConversation(userMessage, botResult);
+            }
 
             // Handle video - show answer video and hide idle video
             const idleVideo = document.getElementById('idle-video');
@@ -1087,6 +1152,18 @@
                 e.stopPropagation();
                 toggleChat();
             }, true); // capture phase to avoid being swallowed by other handlers
+
+            // Set default provider based on server config
+            try {
+                const defaultProvider = '{{ default_provider }}';
+                const openaiRadio = document.getElementById('providerOpenAI');
+                const whisperRadio = document.getElementById('providerWhisper');
+                if (defaultProvider === 'openai') {
+                    if (openaiRadio) openaiRadio.checked = true;
+                } else {
+                    if (whisperRadio) whisperRadio.checked = true;
+                }
+            } catch (_) {}
         });
 
         // Allow Enter key to submit in text mode
@@ -1095,6 +1172,12 @@
                 searchText();
             }
         });
+    </script>
+    <script>
+        function getSelectedProvider() {
+            const openaiRadio = document.getElementById('providerOpenAI');
+            return (openaiRadio && openaiRadio.checked) ? 'openai' : 'whisper';
+        }
     </script>
 </body>
 </html>

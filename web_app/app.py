@@ -10,6 +10,8 @@ from pathlib import Path
 from flask import Flask, request, jsonify, render_template, send_from_directory
 from datetime import datetime
 import sys
+import time
+import math
 
 # Add the faq-video-poc directory to the Python path
 project_root = Path(__file__).parent.parent / "faq-video-poc"
@@ -20,6 +22,7 @@ try:
     from app.search import FAQSearch
     from app.settings import settings
     from app.speech import SpeechToText
+    from app.retrieval import answer as retrieve_answer
     from app.utils import log_answered_question
 except ImportError as e:
     print(f"❌ Failed to import required modules: {e}")
@@ -30,11 +33,12 @@ app = Flask(__name__)
 
 # Initialize components
 faq_search = None
-speech_engine = None
+speech_engine_whisper = None
+speech_engine_openai = None
 
 def initialize_components():
     """Initialize the FAQ search and speech engines."""
-    global faq_search, speech_engine
+    global faq_search, speech_engine_whisper, speech_engine_openai
 
     try:
         print("Initializing FAQ search engine...")
@@ -44,21 +48,68 @@ def initialize_components():
         print(f"❌ Failed to initialize FAQ search engine: {e}")
         return False
 
+    # Lazily initialize speech engines to reduce startup time; pre-init default if whisper
     try:
-        print("🎤 Initializing speech-to-text engine...")
-        speech_engine = SpeechToText(
-            model_name=settings.speech.model_name,
-            language=settings.speech.language,
-            sample_rate=settings.speech.sample_rate,
-            device_index=settings.speech.device_index,
-            energy_threshold=settings.speech.energy_threshold
-        )
-        print("✅ Speech-to-text engine initialized successfully!")
+        default_provider = settings.speech.provider
+        if default_provider == 'whisper':
+            print("🎤 Preloading Whisper speech-to-text engine (default provider)...")
+            speech_engine_whisper = SpeechToText(
+                model_name=settings.speech.model_name,
+                language=settings.speech.language,
+                sample_rate=settings.speech.sample_rate,
+                device_index=settings.speech.device_index,
+                energy_threshold=settings.speech.energy_threshold,
+                provider='whisper'
+            )
+            print("✅ Whisper engine loaded")
+        else:
+            print("🎤 Using OpenAI as default provider; engines will be loaded on demand")
     except Exception as e:
-        print(f"❌ Failed to initialize speech engine: {e}")
+        print(f"❌ Failed to prepare speech engines: {e}")
         return False
 
     return True
+
+
+def get_speech_engine(provider: str):
+    """Return a cached speech engine for the given provider, creating it if necessary."""
+    global speech_engine_whisper, speech_engine_openai
+
+    provider = provider.lower()
+    if provider == 'whisper':
+        if speech_engine_whisper is None:
+            print("🎤 Loading Whisper engine (on demand)...")
+            speech_engine_whisper = SpeechToText(
+                model_name=settings.speech.model_name,
+                language=settings.speech.language,
+                sample_rate=settings.speech.sample_rate,
+                device_index=settings.speech.device_index,
+                energy_threshold=settings.speech.energy_threshold,
+                provider='whisper'
+            )
+            print("✅ Whisper engine loaded")
+        return speech_engine_whisper
+
+    if provider == 'openai':
+        if not settings.speech.openai_api_key:
+            raise RuntimeError('OPENAI_API_KEY not set on server')
+        if speech_engine_openai is None:
+            print("🎤 Initializing OpenAI STT client (on demand)...")
+            speech_engine_openai = SpeechToText(
+                model_name=settings.speech.model_name,
+                language=settings.speech.language,
+                sample_rate=settings.speech.sample_rate,
+                device_index=settings.speech.device_index,
+                energy_threshold=settings.speech.energy_threshold,
+                provider='openai',
+                openai_api_key=settings.speech.openai_api_key,
+                openai_api_base=settings.speech.openai_api_base,
+                openai_model=settings.speech.openai_model
+            )
+            print("✅ OpenAI STT ready")
+        return speech_engine_openai
+
+    raise ValueError(f"Unknown provider: {provider}")
 
 
 def save_unanswered_question(question, source="voice"):
@@ -91,10 +142,27 @@ def save_unanswered_question(question, source="voice"):
     except Exception as e:
         print(f"❌ Error saving unanswered question: {e}")
 
+def find_video_url_for_question(question_text: str):
+    """Find video URL for an exact question match from faq.csv."""
+    try:
+        faq_csv = project_root / "data" / "faq.csv"
+        if not faq_csv.exists():
+            return None
+        with open(faq_csv, newline='', encoding='utf-8') as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                if (row.get('question') or '').strip() == (question_text or '').strip():
+                    fname = (row.get('answer__url') or '').strip()
+                    if fname:
+                        return f"/videos/{fname}"
+        return None
+    except Exception:
+        return None
+
 @app.route('/')
 def index():
     """Serve the main web page."""
-    return render_template('index.html')
+    return render_template('index.html', default_provider=settings.speech.provider)
 
 @app.route('/test')
 def test_page():
@@ -117,8 +185,10 @@ def process_audio():
     if audio_file.filename == '':
         return jsonify({'error': 'No audio file selected'}), 400
 
-    # Get format information from form data
+    # Get format and provider information from form data
     audio_format = request.form.get('format', 'webm')
+    requested_provider = request.form.get('provider', settings.speech.provider)
+    provider = requested_provider if requested_provider in ['openai', 'whisper'] else settings.speech.provider
 
     # Save uploaded audio to temporary file
     extension = '.webm' if audio_format == 'webm' else '.wav'
@@ -129,6 +199,8 @@ def process_audio():
     converted_file_path = None
 
     try:
+        # Start elapsed time measurement as soon as we begin processing
+        start_time = time.perf_counter()
         # Convert audio to WAV format if needed
         import scipy.io.wavfile as wav
         import numpy as np
@@ -181,60 +253,101 @@ def process_audio():
         if len(audio_data.shape) > 1:
             audio_data = audio_data.mean(axis=1)
 
-        # Transcribe audio to text
-        print("🎤 Transcribing audio...")
-        transcribed_text = speech_engine.transcribe_audio(audio_data.astype(np.float32))
+        # Transcribe audio to text using selected provider (cached engine)
+        print(f"🎤 Transcribing audio using provider: {provider}...")
+        try:
+            engine = get_speech_engine(provider)
+        except RuntimeError as key_err:
+            return jsonify({'error': str(key_err), 'provider': provider}), 400
+        except Exception as engine_err:
+            print(f"❌ Failed to get speech engine: {engine_err}")
+            return jsonify({'error': f'Failed to initialize STT engine: {engine_err}', 'provider': provider}), 500
+
+        transcribed_text = engine.transcribe_audio(audio_data.astype(np.float32))
 
         if not transcribed_text:
             return jsonify({'error': 'Could not transcribe audio'}), 400
 
         print(f"📝 Transcribed: '{transcribed_text}'")
 
-        # Search for FAQ answers
-        print("🔍 Searching for answers...")
-        results = faq_search.search(transcribed_text, limit=1)
+        # Retrieve with cross-encoder rerank
+        print("🔍 Retrieving answers...")
+        ret = retrieve_answer(transcribed_text, k=10)
+        elapsed_ms = int((time.perf_counter() - start_time) * 1000)
 
-        if not results:
-            # Save unanswered question to CSV
-            save_unanswered_question(transcribed_text, "voice")
+        # Derive top candidate and confidence regardless of original mode
+        top_q = None
+        top_a = None
+        top_score = None
+        if ret.get('mode') == 'answer':
+            top_q = ret.get('question')
+            top_a = ret.get('answer')
+            top_score = float(ret.get('score') or 0.0)
+        else:
+            cands0 = ret.get('candidates') or []
+            if cands0:
+                top_q = cands0[0].get('question')
+                top_a = cands0[0].get('answer')
+                top_score = float(cands0[0].get('score') or 0.0)
 
+        top_conf = (1.0 / (1.0 + math.exp(-top_score))) * 100.0 if top_score is not None else 0.0
 
+        top_conf = round(top_conf, 2)
+
+        if top_conf > 60.0 and top_q and top_a:
+            # Prefer direct mapping via returned id if present
+            top_id = ret.get('id') if ret.get('mode') == 'answer' else (ret.get('candidates') or [{}])[0].get('id')
+            video_url = None
+            if top_id:
+                try:
+                    video_url = f"/videos/answer_{int(top_id)}.mp4"
+                except Exception:
+                    video_url = None
+            if not video_url:
+                video_url = find_video_url_for_question(top_q)
+            log_answered_question(
+                user_question=transcribed_text,
+                matched_question=top_q,
+                accuracy_score=top_score,
+                csv_path=str(project_root / "data" / "answered_questions.csv")
+            )
             return jsonify({
                 'transcription': transcribed_text,
-                'question': "No answer found",
-                'answer': "I'm sorry, I don't have an answer for that question. I'll save it for review.",
-                'category': "Unanswered",
-                'confidence': 0,
-                'video_url': '/videos/audio_noAns.mp4'
+                'question': top_q,
+                'answer': top_a,
+                'category': 'General',
+                'confidence': top_conf,
+                'video_url': video_url,
+                'provider': provider,
+                'elapsed_ms': elapsed_ms,
+                'mode': 'answer'
             })
 
-        # Get the best result
-        best_result = results[0]
+        # Prepare suggestions list with confidences
+        cands = ret.get('candidates') or []
+        for c in cands:
+            c_score = float(c.get('score') or 0.0)
+            c['confidence'] = round(((1.0 / (1.0 + math.exp(-c_score))) * 100.0), 2)
 
-        # Log the answered question (using transcribed text as user question)
-        log_answered_question(
-            user_question=transcribed_text,
-            matched_question=best_result.question,
-            accuracy_score=best_result.score,
-            csv_path=str(project_root / "data" / "answered_questions.csv")
-        )
-
-        # Check if there's a video URL in metadata
-        video_url = None
-        if best_result.metadata and 'answer__url' in best_result.metadata:
-            video_filename = best_result.metadata['answer__url']
-            if video_filename and video_filename.strip():
-                video_url = f'/videos/{video_filename}'
-
-
-        return jsonify({
-            'transcription': transcribed_text,
-            'question': best_result.question,
-            'answer': best_result.answer,
-            'category': best_result.category,
-            'confidence': round(best_result.score * 100, 1),
-            'video_url': video_url
-        })
+        if 30.0 <= top_conf <= 60.0:
+            return jsonify({
+                'transcription': transcribed_text,
+                'mode': 'suggest',
+                'candidates': cands[:3],
+                'provider': provider,
+                'elapsed_ms': elapsed_ms,
+                'video_url': '/videos/audio_noAns.mp4'
+            })
+        else:
+            return jsonify({
+                'transcription': transcribed_text,
+                'mode': 'suggest',
+                'candidates': [],
+                'message': "Sorry, I can't answer that",
+                'provider': provider,
+                'elapsed_ms': elapsed_ms,
+                'video_url': '/videos/audio_noAns.mp4'
+            })
 
     except Exception as e:
         print(f"❌ Error processing audio: {e}")
@@ -265,51 +378,76 @@ def search_text():
         return jsonify({'error': 'Empty query'}), 400
 
     try:
-        # Search for FAQ answers
-        print(f"🔍 Searching for: '{query}'")
-        results = faq_search.search(query, limit=1)
+        # Retrieve with cross-encoder rerank
+        print(f"🔍 Retrieving for: '{query}'")
+        ret = retrieve_answer(query, k=10)
 
-        if not results:
-            # Save unanswered question to CSV
-            save_unanswered_question(query, "text")
+        # Derive top candidate and confidence regardless of original mode
+        top_q = None
+        top_a = None
+        top_score = None
+        if ret.get('mode') == 'answer':
+            top_q = ret.get('question')
+            top_a = ret.get('answer')
+            top_score = float(ret.get('score') or 0.0)
+        else:
+            cands0 = ret.get('candidates') or []
+            if cands0:
+                top_q = cands0[0].get('question')
+                top_a = cands0[0].get('answer')
+                top_score = float(cands0[0].get('score') or 0.0)
 
+        top_conf = (1.0 / (1.0 + math.exp(-top_score))) * 100.0 if top_score is not None else 0.0
 
+        top_conf = round(top_conf, 2)
+
+        if top_conf > 60.0 and top_q and top_a:
+            top_id = ret.get('id') if ret.get('mode') == 'answer' else (ret.get('candidates') or [{}])[0].get('id')
+            video_url = None
+            if top_id:
+                try:
+                    video_url = f"/videos/answer_{int(top_id)}.mp4"
+                except Exception:
+                    video_url = None
+            if not video_url:
+                video_url = find_video_url_for_question(top_q)
+            log_answered_question(
+                user_question=query,
+                matched_question=top_q,
+                accuracy_score=top_score,
+                csv_path=str(project_root / "data" / "answered_questions.csv")
+            )
             return jsonify({
                 'query': query,
-                'question': "No answer found",
-                'answer': "I'm sorry, I don't have an answer for that question. I'll save it for review.",
-                'category': "Unanswered",
-                'confidence': 0,
-                'video_url': '/videos/audio_noAns.mp4'
+                'question': top_q,
+                'answer': top_a,
+                'category': 'General',
+                'confidence': top_conf,
+                'video_url': video_url,
+                'mode': 'answer'
             })
 
-        # Get the best result
-        best_result = results[0]
+        # Prepare suggestions list with confidences
+        cands = ret.get('candidates') or []
+        for c in cands:
+            c_score = float(c.get('score') or 0.0)
+            c['confidence'] = round(((1.0 / (1.0 + math.exp(-c_score))) * 100.0), 2)
 
-        # Log the answered question
-        log_answered_question(
-            user_question=query,
-            matched_question=best_result.question,
-            accuracy_score=best_result.score,
-            csv_path=str(project_root / "data" / "answered_questions.csv")
-        )
-
-        # Check if there's a video URL in metadata
-        video_url = None
-        if best_result.metadata and 'answer__url' in best_result.metadata:
-            video_filename = best_result.metadata['answer__url']
-            if video_filename and video_filename.strip():
-                video_url = f'/videos/{video_filename}'
-
-
-        return jsonify({
-            'query': query,
-            'question': best_result.question,
-            'answer': best_result.answer,
-            'category': best_result.category,
-            'confidence': round(best_result.score * 100, 1),
-            'video_url': video_url
-        })
+        if 30.0 <= top_conf <= 60.0:
+            return jsonify({
+                'query': query,
+                'mode': 'suggest',
+                'candidates': cands[:3],
+                'video_url': '/videos/audio_noAns.mp4'
+            })
+        else:
+            return jsonify({
+                'query': query,
+                'mode': 'suggest',
+                'candidates': [],
+                'message': "Sorry, I can't answer that",
+                'video_url': '/videos/audio_noAns.mp4'
+            })
 
     except Exception as e:
         print(f"❌ Error processing query: {e}")

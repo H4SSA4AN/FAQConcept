@@ -65,3 +65,42 @@ timestamp,user_question,matched_question,accuracy_score
 2025-09-09T11:32:09.026975,What jobs count as placements?,What roles / jobs are accepted as placements?,0.7148
 2025-09-09T11:32:09.027757,What jobs count as placements?,Are placements usually voluntary or can you get some paid placements too?,0.3082
 2025-09-09T11:32:26.062313,How can i get proof of student status?,How can I obtain proof of my student status?,1.033
+2025-09-09T11:59:24.258675,what is the placement year?,What is the Placement Year option at Loughborough University?,0.4698
+2025-09-09T11:59:24.259413,what is the placement year?,I'm not sure if I'm going to do a placement year. When do I have to decide by?,0.5482
+2025-09-09T12:18:43.196852,What is the placement year?,What is the Placement Year option at Loughborough University?,0.4698
+2025-09-09T12:18:43.197412,What is the placement year?,I'm not sure if I'm going to do a placement year. When do I have to decide by?,0.5482
+2025-09-09T16:04:54.491367,What is a placement?,Where can I find placements?,0.5371
+2025-09-09T16:04:54.492086,What is a placement?,When should a part A student start looking for placements?,0.3179
+2025-09-09T16:05:15.142300,"Okay, what is a placement year?",I'm not sure if I'm going to do a placement year. When do I have to decide by?,0.681
+2025-09-09T16:05:15.142960,"Okay, what is a placement year?",What is the Placement Year option at Loughborough University?,0.4876
+2025-09-09T16:05:15.143360,"Okay, what is a placement year?",How long does my placement have to be?,0.365
+2025-09-09T16:05:23.375438,What is a placement?,Where can I find placements?,0.5371
+2025-09-09T16:05:23.375925,What is a placement?,When should a part A student start looking for placements?,0.3179
+2025-09-09T16:05:30.543235,"Okay, what is the placement year option?",What is the Placement Year option at Loughborough University?,0.5373
+2025-09-09T16:05:30.543688,"Okay, what is the placement year option?",I'm not sure if I'm going to do a placement year. When do I have to decide by?,0.5699
+2025-09-09T16:05:30.544092,"Okay, what is the placement year option?",How can I add or remove a placement year from my route?,0.3928
+2025-09-09T16:05:46.259151,What is the placement year?,What is the Placement Year option at Loughborough University?,0.4698
+2025-09-09T16:05:46.259653,What is the placement year?,I'm not sure if I'm going to do a placement year. When do I have to decide by?,0.5482
+2025-09-09T16:05:59.758188,What is a placement?,Where can I find placements?,0.5371
+2025-09-09T16:05:59.758675,What is a placement?,When should a part A student start looking for placements?,0.3179
+2025-09-09T16:06:18.617253,"Okay, what is a placement?",Where can I find placements?,0.5663
+2025-09-09T16:06:18.617739,"Okay, what is a placement?",How long does my placement have to be?,0.3248
+2025-09-09T16:06:18.618193,"Okay, what is a placement?",When should a part A student start looking for placements?,0.3431
+2025-09-09T16:06:32.496499,"Okay, what is a placement?",Where can I find placements?,0.5663
+2025-09-09T16:06:32.497114,"Okay, what is a placement?",How long does my placement have to be?,0.3248
+2025-09-09T16:06:32.497554,"Okay, what is a placement?",When should a part A student start looking for placements?,0.3431
+2025-09-09T16:14:00.759596,What is the placement year?,What is the Placement Year option at Loughborough University?,0.4698
+2025-09-09T16:14:00.760340,What is the placement year?,I'm not sure if I'm going to do a placement year. When do I have to decide by?,0.5482
+2025-09-09T16:14:16.349061,"Okay, what is the placement?",Where can I find placements?,0.4507
+2025-09-09T16:22:18.449499,"Okay, what is the placement?",Where can I find placements?,0.4507
+2025-09-09T16:22:39.805921,What is the placement year?,What is the Placement Year option at Loughborough University?,0.4698
+2025-09-09T16:22:39.806511,What is the placement year?,I'm not sure if I'm going to do a placement year. When do I have to decide by?,0.5482
+2025-09-09T16:27:27.421250,What is a placement?,Where can I find placements?,0.5371
+2025-09-09T16:27:27.421746,What is a placement?,When should a part A student start looking for placements?,0.3179
+2025-09-09T16:28:38.814918,What is the placement year?,What is the Placement Year option at Loughborough University?,0.4698
+2025-09-09T16:28:38.815451,What is the placement year?,I'm not sure if I'm going to do a placement year. When do I have to decide by?,0.5482
+2025-09-09T16:28:45.896523,"Okay, what is the placement year?",What is the Placement Year option at Loughborough University?,0.4698
+2025-09-09T16:28:45.896983,"Okay, what is the placement year?",I'm not sure if I'm going to do a placement year. When do I have to decide by?,0.544
+2025-09-09T16:34:31.636340,What is the placement?,Where can I find placements?,0.5441
+2025-09-09T16:43:57.738774,What is the placement?,Where can I find placements?,0.5441
+2025-09-09T16:49:38.684377,What is the placement year option at loughborough,What is the Placement Year option at Loughborough University?,0.3743

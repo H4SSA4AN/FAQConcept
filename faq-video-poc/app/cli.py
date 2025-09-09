@@ -78,12 +78,20 @@ def search(ctx, query, limit, threshold):
               help='Minimum similarity threshold')
 @click.option('--save-audio', is_flag=True, help='Save recorded audio to file')
 @click.option('--audio-file', default='recorded_audio.wav', help='Filename for saved audio')
+@click.option('--provider', type=click.Choice(['whisper', 'openai']), default=settings.speech.provider,
+              help='Speech-to-text provider to use')
+@click.option('--openai-model', default=settings.speech.openai_model,
+              help='OpenAI model to use for transcription (when provider=openai)')
 @click.pass_context
-def speech(ctx, max_duration, silence_threshold, limit, threshold, save_audio, audio_file):
+def speech(ctx, max_duration, silence_threshold, limit, threshold, save_audio, audio_file, provider, openai_model):
     """Search FAQs using voice input with speech-to-text."""
     try:
         click.echo("🎤 Initializing speech-to-text engine...")
-        click.echo(f"Using Whisper model: {settings.speech.model_name}")
+        click.echo(f"Provider: {provider}")
+        if provider == 'whisper':
+            click.echo(f"Whisper model: {settings.speech.model_name}")
+        else:
+            click.echo(f"OpenAI model: {openai_model}")
         click.echo(f"Language: {settings.speech.language}")
         click.echo()
 
@@ -93,7 +101,11 @@ def speech(ctx, max_duration, silence_threshold, limit, threshold, save_audio, a
             language=settings.speech.language,
             sample_rate=settings.speech.sample_rate,
             device_index=settings.speech.device_index,
-            energy_threshold=settings.speech.energy_threshold
+            energy_threshold=settings.speech.energy_threshold,
+            provider=provider,
+            openai_api_key=settings.speech.openai_api_key,
+            openai_api_base=settings.speech.openai_api_base,
+            openai_model=openai_model
         )
 
         # Initialize search engine
@@ -175,16 +187,59 @@ def devices(ctx):
 
 
 @cli.command()
+@click.option('--api-key', prompt=True, hide_input=True, confirmation_prompt=True,
+              help='OpenAI API key to store in .env')
+@click.pass_context
+def set_openai_key(ctx, api_key):
+    """Set and save the OpenAI API key into the local .env file."""
+    try:
+        env_path = settings.project_root / '.env'
+        # Read current .env contents if exist
+        existing = {}
+        if env_path.exists():
+            for line in env_path.read_text(encoding='utf-8').splitlines():
+                if line.strip() and not line.strip().startswith('#') and '=' in line:
+                    k, v = line.split('=', 1)
+                    existing[k.strip()] = v.strip()
+
+        existing['OPENAI_API_KEY'] = api_key
+
+        # Write back
+        lines = [f"{k}={v}" for k, v in existing.items()]
+        if 'SPEECH_PROVIDER' not in existing:
+            lines.append('SPEECH_PROVIDER=openai')
+
+        env_path.write_text('\n'.join(lines) + '\n', encoding='utf-8')
+        click.echo(f"✓ OPENAI_API_KEY saved to {env_path}")
+
+        # Update in-memory settings for current session
+        settings.speech.openai_api_key = api_key
+        settings.speech.provider = 'openai'
+
+    except Exception as e:
+        logger.error(f"Failed to save API key: {e}")
+        click.echo(f"Error: {e}", err=True)
+        raise click.Abort()
+
+@cli.command()
 @click.option('--max-duration', '-d', default=settings.speech.max_recording_time,
               help='Maximum recording duration in seconds')
 @click.option('--save-audio', is_flag=True, default=True, help='Save recorded audio to file')
 @click.option('--audio-file', default='recorded_audio.wav', help='Filename for saved audio')
+@click.option('--provider', type=click.Choice(['whisper', 'openai']), default=settings.speech.provider,
+              help='Speech-to-text provider to use')
+@click.option('--openai-model', default=settings.speech.openai_model,
+              help='OpenAI model to use for transcription (when provider=openai)')
 @click.pass_context
-def record(ctx, max_duration, save_audio, audio_file):
+def record(ctx, max_duration, save_audio, audio_file, provider, openai_model):
     """Record audio manually and transcribe it (press Enter to start/stop)."""
     try:
         click.echo("🎤 Initializing speech-to-text engine...")
-        click.echo(f"Using Whisper model: {settings.speech.model_name}")
+        click.echo(f"Provider: {provider}")
+        if provider == 'whisper':
+            click.echo(f"Whisper model: {settings.speech.model_name}")
+        else:
+            click.echo(f"OpenAI model: {openai_model}")
         click.echo(f"Language: {settings.speech.language}")
         click.echo()
 
@@ -194,7 +249,11 @@ def record(ctx, max_duration, save_audio, audio_file):
             language=settings.speech.language,
             sample_rate=settings.speech.sample_rate,
             device_index=settings.speech.device_index,
-            energy_threshold=settings.speech.energy_threshold
+            energy_threshold=settings.speech.energy_threshold,
+            provider=provider,
+            openai_api_key=settings.speech.openai_api_key,
+            openai_api_base=settings.speech.openai_api_base,
+            openai_model=openai_model
         )
 
         # Record and transcribe manually

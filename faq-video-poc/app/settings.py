@@ -51,6 +51,7 @@ class WebRTCConfig:
 @dataclass
 class SpeechConfig:
     """Speech-to-text configuration."""
+    provider: str = "whisper"  # Options: "whisper" (local), "openai" (API)
     model_name: str = "turbo"  # Options: "tiny", "base", "small", "medium", "large", "turbo"
     language: str = "en"  # Language code, None for auto-detection
     sample_rate: int = 16000  # Audio sample rate
@@ -66,6 +67,11 @@ class SpeechConfig:
     vad_noise_floor: float = 0.001  # Minimum noise floor for adaptive threshold
     vad_min_speech_frames: int = 3  # Min consecutive speech frames to start recording
     vad_min_silence_frames: int = 8  # Min consecutive silence frames to stop recording
+
+    # OpenAI API settings
+    openai_api_key: Optional[str] = None
+    openai_api_base: Optional[str] = None
+    openai_model: str = "gpt-4o-transcribe"  # default STT model name for OpenAI API
 
 
 @dataclass
@@ -105,6 +111,7 @@ class Settings:
         )
 
         self.speech = SpeechConfig(
+            provider=os.getenv("SPEECH_PROVIDER", "openai" if os.getenv("OPENAI_API_KEY") else "whisper"),
             model_name=os.getenv("WHISPER_MODEL", "turbo"),
             language=os.getenv("WHISPER_LANGUAGE", "en"),
             sample_rate=int(os.getenv("AUDIO_SAMPLE_RATE", "16000")),
@@ -118,7 +125,11 @@ class Settings:
             vad_pre_roll_duration=float(os.getenv("VAD_PRE_ROLL_DURATION", "0.2")),
             vad_noise_floor=float(os.getenv("VAD_NOISE_FLOOR", "0.001")),
             vad_min_speech_frames=int(os.getenv("VAD_MIN_SPEECH_FRAMES", "3")),
-            vad_min_silence_frames=int(os.getenv("VAD_MIN_SILENCE_FRAMES", "8"))
+            vad_min_silence_frames=int(os.getenv("VAD_MIN_SILENCE_FRAMES", "8")),
+            # OpenAI API
+            openai_api_key=os.getenv("OPENAI_API_KEY"),
+            openai_api_base=os.getenv("OPENAI_API_BASE"),
+            openai_model=os.getenv("OPENAI_STT_MODEL", "gpt-4o-transcribe")
         )
 
         self.app = AppConfig(
