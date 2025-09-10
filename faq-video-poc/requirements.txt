@@ -5,10 +5,6 @@ pandas>=1.5.0
 numpy>=1.21.0
 click>=8.0.0
 
-# WebRTC for real-time video streaming
-aiortc>=1.6.0
-av>=10.0.0
-
 # Environment and configuration
 python-dotenv>=1.0.0
 
@@ -25,12 +21,16 @@ openai-whisper>=20231117
 sounddevice>=0.4.6
 scipy>=1.7.0
 
-# Web interface
+# OpenAI API client for speech-to-text (Whisper API)
+openai>=1.40.0
+
+# Web interface (Flask backend used by web_app)
 Flask>=2.3.0
 pydub>=0.25.1
-fastapi>=0.100.0
-uvicorn>=0.23.0
 
 # Web application dependencies
 Flask>=2.3.0
 Werkzeug>=2.3.0
+
+# Optional lexical tie-breaker (fast and lightweight)
+rapidfuzz>=3.0.0

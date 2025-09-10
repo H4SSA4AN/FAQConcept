@@ -71,176 +71,32 @@ class FAQSearch:
 
     def search(self, query: str, limit: int = None, threshold: float = None) -> List[SearchResult]:
         """
-        Search for FAQs matching the query.
+        Minimal semantic search using Chroma + sentence-transformer embeddings.
 
         Args:
             query: Search query
-            limit: Maximum number of results to return
-            threshold: Minimum similarity threshold
+            limit: Maximum number of results to return (defaults to settings.app.max_results)
+            threshold: Optional minimum similarity threshold (0–1)
 
         Returns:
-            List of SearchResult objects
+            List of SearchResult objects ranked by embedding similarity only
         """
         if limit is None:
-            # Initial retrieval size (raise top_k)
-            limit = max(settings.app.max_results, 10)
+            limit = settings.app.max_results
 
-        if threshold is None:
-            threshold = settings.app.similarity_threshold
+        logger.info(f"Searching for: '{query}' (limit={limit})")
 
-        # Tokenize user query for reranking and primary clause strategy
-        user_tokens = re.findall(r"\w+", query.lower())
-        user_len = len(user_tokens)
-        user_token_set = set(user_tokens)
+        if not (self.use_chroma and self.chroma_indexer):
+            raise RuntimeError("Chroma database must be available")
 
-        logger.info(f"Searching for: '{query}' (limit={limit}, threshold={threshold})")
+        # Query Chroma directly for top-N by embedding similarity
+        results = self._search_chroma(query, limit)
 
-        all_results = []
+        # Optionally filter by threshold, preserving order
+        if threshold is not None:
+            results = [r for r in results if r.score >= threshold]
 
-        # Search Chroma with full and primary clause queries
-        if self.use_chroma and self.chroma_indexer:
-            try:
-                initial_k = max(30, settings.app.max_results * 5)
-                # Pull extra candidates for better reranking
-                full_results = self._search_chroma(query, initial_k)
-                all_results.extend(full_results)
-
-                # For long queries, avoid truncating to a short primary clause
-                primary_query = self._extract_primary_clause(query) if user_len <= 14 else None
-                primary_results = []
-                if primary_query and primary_query != query:
-                    primary_results = self._search_chroma(primary_query, initial_k)
-                    all_results.extend(primary_results)
-            except Exception as e:
-                logger.error(f"Chroma search failed: {e}")
-
-        # Merge and rerank combining full vs primary scores per FAQ id
-        by_id: Dict[str, Dict[str, Any]] = {}
-
-        def add_results(results: List[SearchResult], weight: float):
-            for r in results:
-                faq_id = (r.metadata or {}).get('id') or r.question
-                entry_type = (r.metadata or {}).get('entry_type', 'qa')
-                # Base score with small question_only boost
-                base = r.score + (0.10 if entry_type == 'question_only' else 0.0)
-                if faq_id not in by_id:
-                    by_id[faq_id] = {
-                        'full': 0.0,
-                        'primary': 0.0,
-                        'best_meta': r,
-                        'best_base': base,
-                    }
-                # Track highest base score source-wise
-                if weight > 0.5:  # primary channel
-                    by_id[faq_id]['primary'] = max(by_id[faq_id]['primary'], base)
-                else:
-                    by_id[faq_id]['full'] = max(by_id[faq_id]['full'], base)
-                # Keep representative metadata from the highest base
-                if base > by_id[faq_id]['best_base']:
-                    by_id[faq_id]['best_base'] = base
-                    by_id[faq_id]['best_meta'] = r
-
-        # Split back out full and primary lists from all_results
-        # Recompute with long-query protection
-        primary_query = self._extract_primary_clause(query) if user_len <= 14 else None
-        initial_k = max(30, settings.app.max_results * 5)
-        full_results = self._search_chroma(query, initial_k) if (self.use_chroma and self.chroma_indexer) else []
-        primary_results = self._search_chroma(primary_query, initial_k) if (self.use_chroma and self.chroma_indexer and primary_query and primary_query != query) else []
-
-        add_results(full_results, weight=0.4)
-        add_results(primary_results, weight=0.6)
-
-        combined: List[SearchResult] = []
-        for _id, rec in by_id.items():
-            combined_score = 0.4 * rec['full'] + 0.6 * rec['primary']
-            if combined_score >= threshold:
-                base_result = rec['best_meta']
-                combined.append(SearchResult(
-                    question=base_result.question,
-                    answer=base_result.answer,
-                    category=base_result.category,
-                    score=combined_score,
-                    source=base_result.source,
-                    metadata=base_result.metadata
-                ))
-
-        # Lightweight reranking: favor overlap and length for long queries,
-        # penalize generic "where can i find" when user expresses inability
-        stop_words = {
-            "the","a","an","to","for","of","and","or","in","on","at","is","are","was","were",
-            "be","can","i","you","we","they","it","do","does","did","what","where","when","how"
-        }
-        key_terms = [t for t in user_tokens if t not in stop_words]
-        key_set = set(key_terms)
-        neg_intent = any(t in {"dont","don't","not","cant","can't","cannot","unable","manage"} for t in user_tokens)
-
-        def coverage_ratio(text: str) -> float:
-            ft = set(re.findall(r"\w+", (text or "").lower()))
-            return len(key_set & ft) / (len(key_set) or 1)
-
-        # Heuristics to align intent with phrasing
-        user_text_lower = query.lower().strip()
-        user_tokens_prefix = user_tokens[:2]
-        user_starts_def = user_text_lower.startswith("what is") or user_text_lower.startswith("what's")
-
-        for r in combined:
-            rq = (r.question or "").lower()
-            cov = coverage_ratio(rq)
-            faq_len = len(re.findall(r"\w+", rq))
-            len_bonus = min(1.0, faq_len / (user_len or 1))
-            rerank = r.score + 0.30 * cov
-            adjustments = []
-            
-            if user_len >= 12:
-                rerank += 0.10 * len_bonus
-                adjustments.append(f"len_bonus:+{0.10 * len_bonus:.3f}")
-            
-            # Penalize generic locator when user expresses inability
-            if neg_intent and rq.startswith("where can i find"):
-                rerank -= 0.15
-                adjustments.append("neg_intent:-0.150")
-            
-            # Prefer matches that share the same opening phrase (e.g., "what is ...")
-            cand_tokens = re.findall(r"\w+", rq)
-            cand_prefix = cand_tokens[:2]
-            if user_starts_def:
-                cand_starts_def = rq.startswith("what is") or rq.startswith("what's")
-                if cand_starts_def:
-                    rerank += 0.12
-                    adjustments.append("def_match:+0.120")
-                # Deprioritize uncertain/self-referential phrasing for definitional queries
-                if any(p in rq for p in ["i'm not sure", "i am not sure", "not sure", "unsure"]):
-                    rerank -= 0.12
-                    adjustments.append("uncertain:-0.120")
-            
-            # Small boost if first token(s) align
-            if user_tokens_prefix and cand_prefix and user_tokens_prefix[0] == cand_prefix[0]:
-                rerank += 0.05
-                adjustments.append("prefix1:+0.050")
-            if len(user_tokens_prefix) == 2 and len(cand_prefix) == 2 and user_tokens_prefix == cand_prefix:
-                rerank += 0.05
-                adjustments.append("prefix2:+0.050")
-
-            r._rerank = rerank
-            
-            # Log reranking details
-            logger.info(f"Rerank: '{r.question[:50]}...' | Original: {r.score:.4f} | Coverage: {cov:.3f} | Adjustments: {', '.join(adjustments) if adjustments else 'none'} | Final: {rerank:.4f}")
-
-        combined.sort(key=lambda x: (getattr(x, "_rerank", x.score), x.score), reverse=True)
-        final_results = combined[:settings.app.max_results]
-
-        logger.info(f"Found {len(final_results)} results above threshold {threshold}")
-
-        # Log answered questions to CSV
-        if final_results:
-            for result in final_results:
-                log_answered_question(
-                    user_question=query,
-                    matched_question=result.question,
-                    accuracy_score=result.score
-                )
-
-        return final_results
+        return results[:limit]
 
     def _search_chroma(self, query: str, limit: int) -> List[SearchResult]:
         """Search using Chroma indexer."""

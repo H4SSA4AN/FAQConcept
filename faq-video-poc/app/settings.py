@@ -32,25 +32,15 @@ class EmbeddingConfig:
 class DataConfig:
     """Data and file paths configuration."""
     faq_data_path: str = "data/faq.csv"
-    demo_questions_path: str = "scripts/demo_questions.txt"
 
 
-@dataclass
-class WebRTCConfig:
-    """WebRTC streaming configuration."""
-    ice_servers: list = None
-    video_width: int = 640
-    video_height: int = 480
-    video_fps: int = 30
-
-    def __post_init__(self):
-        if self.ice_servers is None:
-            self.ice_servers = ["stun:stun.l.google.com:19302"]
+# Note: WebRTC is not used in the current web app; removed redundant config
 
 
 @dataclass
 class SpeechConfig:
     """Speech-to-text configuration."""
+    provider: str = "whisper"  # Options: "whisper" (local), "openai" (API)
     model_name: str = "turbo"  # Options: "tiny", "base", "small", "medium", "large", "turbo"
     language: str = "en"  # Language code, None for auto-detection
     sample_rate: int = 16000  # Audio sample rate
@@ -66,6 +56,11 @@ class SpeechConfig:
     vad_noise_floor: float = 0.001  # Minimum noise floor for adaptive threshold
     vad_min_speech_frames: int = 3  # Min consecutive speech frames to start recording
     vad_min_silence_frames: int = 8  # Min consecutive silence frames to stop recording
+
+    # OpenAI API settings
+    openai_api_key: Optional[str] = None
+    openai_api_base: Optional[str] = None
+    openai_model: str = "gpt-4o-transcribe"  # default STT model name for OpenAI API
 
 
 @dataclass
@@ -93,18 +88,13 @@ class Settings:
         )
 
         self.data = DataConfig(
-            faq_data_path=os.getenv("FAQ_DATA_PATH", "data/faq.csv"),
-            demo_questions_path=os.getenv("DEMO_QUESTIONS_PATH", "scripts/demo_questions.txt")
+            faq_data_path=os.getenv("FAQ_DATA_PATH", "data/faq.csv")
         )
 
-        self.webrtc = WebRTCConfig(
-            ice_servers=os.getenv("WEBRTC_ICE_SERVERS", "stun:stun.l.google.com:19302").split(","),
-            video_width=int(os.getenv("VIDEO_WIDTH", "640")),
-            video_height=int(os.getenv("VIDEO_HEIGHT", "480")),
-            video_fps=int(os.getenv("VIDEO_FPS", "30"))
-        )
+        # WebRTC configuration removed (unused)
 
         self.speech = SpeechConfig(
+            provider=os.getenv("SPEECH_PROVIDER", "openai" if os.getenv("OPENAI_API_KEY") else "whisper"),
             model_name=os.getenv("WHISPER_MODEL", "turbo"),
             language=os.getenv("WHISPER_LANGUAGE", "en"),
             sample_rate=int(os.getenv("AUDIO_SAMPLE_RATE", "16000")),
@@ -118,7 +108,11 @@ class Settings:
             vad_pre_roll_duration=float(os.getenv("VAD_PRE_ROLL_DURATION", "0.2")),
             vad_noise_floor=float(os.getenv("VAD_NOISE_FLOOR", "0.001")),
             vad_min_speech_frames=int(os.getenv("VAD_MIN_SPEECH_FRAMES", "3")),
-            vad_min_silence_frames=int(os.getenv("VAD_MIN_SILENCE_FRAMES", "8"))
+            vad_min_silence_frames=int(os.getenv("VAD_MIN_SILENCE_FRAMES", "8")),
+            # OpenAI API
+            openai_api_key=os.getenv("OPENAI_API_KEY"),
+            openai_api_base=os.getenv("OPENAI_API_BASE"),
+            openai_model=os.getenv("OPENAI_STT_MODEL", "gpt-4o-transcribe")
         )
 
         self.app = AppConfig(
@@ -144,8 +138,8 @@ class Settings:
 
     @property
     def demo_questions_path(self) -> Path:
-        """Get the full path to demo questions file."""
-        return self.project_root / self.data.demo_questions_path
+        """Deprecated: demo questions path removed."""
+        return self.project_root
 
 
 # Global settings instance

@@ -1,24 +1,21 @@
 timestamp,user_question,matched_question,accuracy_score
-
-2025-09-05T12:39:22.695812,Where can i find placements,Where can I find placements?,0.4137
-2025-09-05T12:39:35.400879,Where can I find placements?,Where can I find placements?,1.0404
-2025-09-05T12:39:39.840841,Where can I find placements?,Where can I find placements?,1.0404
-2025-09-05T14:45:15.500556,What is the placement?,Where can I find placements?,0.5441
-2025-09-05T14:45:30.147515,What is the placement year?,What is the Placement Year option at Loughborough University?,0.4698
-2025-09-05T14:45:49.888042,"Okay, what happens if I'm unable to find a placement?",Where can I find placements?,0.5058
-2025-09-05T14:46:17.704137,"Ok, if I don't manage to find a placement what happens?",How long does my placement have to be?,0.3045
-2025-09-05T14:46:33.762005,"If I don't manage to find a placement, what happens from there?","If you don't manage to find a placement, what are the steps to take from there? Do you go straight into your final year, or can you find an internship or something like that?",0.3245
-2025-09-05T14:47:14.346138,What is the placement year?,What is the Placement Year option at Loughborough University?,0.4698
-2025-09-05T14:47:35.028201,Can I change my mind about a placement year?,I'm not sure if I'm going to do a placement year. When do I have to decide by?,0.5021
-2025-09-05T14:48:07.984004,"Okay, how can I add or remove a placement year?",How can I add or remove a placement year from my route?,0.6499
-2025-09-05T14:50:34.386878,What is the placement?,Where can I find placements?,0.5441
-2025-09-05T14:51:03.572099,What is the placement year?,What is the Placement Year option at Loughborough University?,0.4698
-2025-09-05T14:51:37.961756,What happens if I can't find a placement?,"If you don't manage to find a placement, what are the steps to take from there? Do you go straight into your final year, or can you find an internship or something like that?",0.3184
-2025-09-05T14:52:20.494583,Do you have a list of companies that offer placements?,Do you have a list of companies that offer placements / have taken students in the past or do we just have to look online ourselves?,0.4196
-2025-09-09T11:26:23.449354,"If i can't find a placement, what happens?",Where can I find placements?,0.5359
-2025-09-09T11:28:00.756154,"If I'm unable to find a placement, what happens?",Where can I find placements?,0.4986
-2025-09-09T11:28:51.709667,"If i don't manage to find a placement, what happens?","If you don't manage to find a placement, what are the steps to take from there? Do you go straight into your final year, or can you find an internship or something like that?",0.3232
-2025-09-09T11:30:51.789271,What is a placement year?,What is the Placement Year option at Loughborough University?,0.4479
-2025-09-09T11:31:55.829595,Are placements usually voluntary?,Are placements usually voluntary or can you get some paid placements too?,0.7322
-2025-09-09T11:32:09.028322,What jobs count as placements?,What roles / jobs are accepted as placements?,0.7148
-2025-09-09T11:32:26.062887,How can i get proof of student status?,How can I obtain proof of my student status?,1.033
+2025-09-10T12:05:53.548385,What's the latest i have to decide to do a placement year?,I'm not sure if I'm going to do a placement year. When do I have to decide by?,0.99
+2025-09-10T12:06:16.020233,What financial support is available?,What financial support is available?,0.9994
+2025-09-10T12:06:34.425090,Can i do a study year abroad instead?,Are we able to do a study year abroad instead of a placement?,0.9999
+2025-09-10T12:10:13.339459,When should I start looking for placements?,When should a part A student start looking for placements?,0.9999
+2025-09-10T12:10:29.368135,placement,What is the Placement Year option at Loughborough University?,0.9877
+2025-09-10T12:10:36.687400,placements,Where can I find placements?,0.9937
+2025-09-10T12:11:09.156422,If i can't find a placement,"If you don't manage to find a placement, what are the steps to take from there? Do you go straight into your final year, or can you find an internship or something like that?",0.9974
+2025-09-10T12:11:19.941005,paid placements,Are placements usually voluntary or can you get some paid placements too?,0.9966
+2025-09-10T12:11:43.380996,where to find placements,Where can I find placements?,0.9996
+2025-09-10T12:15:56.286011,which companies take students and how long does the placement have to be?,How long does my placement have to be?,0.9247
+2025-09-10T12:16:11.664873,What if i cant find a placement?,"If you don't manage to find a placement, what are the steps to take from there? Do you go straight into your final year, or can you find an internship or something like that?",0.9931
+2025-09-10T12:16:30.523128,Can first years get paid placements or are they usually voluntary?,Are placements usually voluntary or can you get some paid placements too?,0.9794
+2025-09-10T12:16:46.534510,Do i have to pay for the placement?,Why do I have to pay tuition fees?,0.9983
+2025-09-10T12:17:08.971183,Do i have to pay for the placement year and when's the latest i can decide to do it?,I'm not sure if I'm going to do a placement year. When do I have to decide by?,0.9746
+2025-09-10T12:18:28.675566,When should I start looking?,When should a part A student start looking for placements?,0.9985
+2025-09-10T12:18:47.462827,How many weeks do i need?,How long does my placement have to be?,0.872
+2025-09-10T12:19:08.890364,What support is available during the year?,What support is available from the University while I am on my placement year?,0.9966
+2025-09-10T12:19:23.000622,who can review my application?,Can I have an appointment to check over my applications?,0.9882
+2025-09-10T12:27:43.938457,How do I switch to a placement year?,How can I add or remove a placement year from my route?,0.9527
+2025-09-10T12:32:00.132240,What happens if I can't find a placement?,"If you don't manage to find a placement, what are the steps to take from there? Do you go straight into your final year, or can you find an internship or something like that?",0.987

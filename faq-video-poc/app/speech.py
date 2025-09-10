@@ -1,5 +1,5 @@
 """
-Speech-to-text functionality using OpenAI Whisper v3 Turbo.
+Speech-to-text functionality supporting Whisper (local) and OpenAI API.
 
 This module provides real-time speech-to-text capabilities for the FAQ system,
 allowing users to speak their questions instead of typing them.
@@ -23,11 +23,14 @@ except ImportError:
 
 
 class SpeechToText:
-    """Speech-to-text engine using Whisper."""
+    """Speech-to-text engine supporting multiple providers."""
 
     def __init__(self, model_name: str = "turbo", language: str = "en",
                  sample_rate: int = 16000, device_index: Optional[int] = None,
-                 energy_threshold: int = 300):
+                 energy_threshold: int = 300, provider: str = "whisper",
+                 openai_api_key: Optional[str] = None,
+                 openai_api_base: Optional[str] = None,
+                 openai_model: Optional[str] = None):
         """
         Initialize the speech-to-text engine.
 
@@ -38,7 +41,9 @@ class SpeechToText:
             device_index: Audio device index (None for default)
             energy_threshold: Energy threshold for voice activity detection
         """
-        if not WHISPER_AVAILABLE:
+        self.provider = provider.lower()
+
+        if self.provider == "whisper" and not WHISPER_AVAILABLE:
             raise ImportError("Whisper is not installed. Run: pip install openai-whisper")
 
         self.model_name = model_name
@@ -48,10 +53,14 @@ class SpeechToText:
         self.energy_threshold = energy_threshold
 
         self.model = None
+        self.openai_api_key = openai_api_key
+        self.openai_api_base = openai_api_base
+        self.openai_model = openai_model or "gpt-4o-transcribe"
         self._is_recording = False
 
-        # Load the model
-        self._load_model()
+        # Load the model if using local Whisper
+        if self.provider == "whisper":
+            self._load_model()
 
     def _load_model(self):
         """Load the Whisper model."""
@@ -62,6 +71,77 @@ class SpeechToText:
         except Exception as e:
             logger.error(f"Failed to load Whisper model: {e}")
             raise
+
+    def _transcribe_with_openai(self, audio_data: np.ndarray) -> Optional[str]:
+        """Transcribe audio using OpenAI's API."""
+        try:
+            # Lazy import to avoid dependency if not used
+            try:
+                from openai import OpenAI
+            except Exception as e:
+                logger.error("OpenAI client not available. Install with: pip install openai")
+                raise
+
+            if not self.openai_api_key:
+                raise ValueError("OPENAI_API_KEY is not set. Use CLI to set it or set env var.")
+
+            client_kwargs = {"api_key": self.openai_api_key}
+            if self.openai_api_base:
+                client_kwargs["base_url"] = self.openai_api_base
+
+            client = OpenAI(**client_kwargs)
+
+            # Convert float32 audio to WAV bytes in-memory
+            audio_float32 = audio_data.astype(np.float32)
+            if audio_float32.max() > 1.0 or audio_float32.min() < -1.0:
+                audio_float32 = audio_float32 / np.max(np.abs(audio_float32))
+
+            buffer = io.BytesIO()
+            # Give BytesIO a name attribute for the API (mimics file upload)
+            buffer.name = "audio.wav"  # type: ignore[attr-defined]
+            wav.write(buffer, self.sample_rate, (audio_float32 * 32767).astype(np.int16))
+            buffer.seek(0)
+
+            logger.info("🎯 Transcribing audio with OpenAI API...")
+
+            # Prefer new models like gpt-4o-transcribe; fallback to whisper-1 if configured
+            model_name = self.openai_model or "gpt-4o-transcribe"
+
+            try:
+                # Newer API
+                result = client.audio.transcriptions.create(
+                    model=model_name,
+                    file=buffer,
+                    response_format="text",
+                    language=self.language
+                )
+                text = result if isinstance(result, str) else getattr(result, "text", None)
+            except Exception as api_err:
+                logger.warning(f"Primary transcription path failed ({api_err}), attempting fallback API.")
+                # Fallback to legacy endpoint name if available
+                try:
+                    result = client.audio.transcriptions.create(
+                        model=model_name,
+                        file=buffer,
+                        response_format="verbose_json",
+                        language=self.language
+                    )
+                    text = getattr(result, "text", None)
+                except Exception as fallback_err:
+                    logger.error(f"OpenAI transcription failed: {fallback_err}")
+                    raise
+
+            if text:
+                text = text.strip()
+                logger.info(f"📝 Transcribed (OpenAI): '{text}'")
+                return text
+
+            logger.warning("⚠️ No speech detected in audio (OpenAI)")
+            return None
+
+        except Exception as e:
+            logger.error(f"❌ OpenAI transcription failed: {e}")
+            return None
 
     def list_audio_devices(self) -> List[str]:
         """List available audio input devices."""
@@ -261,7 +341,7 @@ class SpeechToText:
 
     def transcribe_audio(self, audio_data: np.ndarray) -> Optional[str]:
         """
-        Transcribe audio data to text using Whisper.
+        Transcribe audio data to text using the configured provider.
 
         Args:
             audio_data: Audio data as numpy array
@@ -274,6 +354,10 @@ class SpeechToText:
                 logger.warning("No audio data to transcribe")
                 return None
 
+            if self.provider == "openai":
+                return self._transcribe_with_openai(audio_data)
+
+            # Default: Whisper local
             # Convert to the format expected by Whisper
             audio_float32 = audio_data.astype(np.float32)
 
@@ -281,23 +365,22 @@ class SpeechToText:
             if audio_float32.max() > 1.0 or audio_float32.min() < -1.0:
                 audio_float32 = audio_float32 / np.max(np.abs(audio_float32))
 
-            logger.info("🎯 Transcribing audio...")
+            logger.info("🎯 Transcribing audio with Whisper...")
 
-            # Transcribe using Whisper
             result = self.model.transcribe(
                 audio_float32,
                 language=self.language,
-                fp16=False,  # Use FP32 for better compatibility
+                fp16=False,
                 verbose=False
             )
 
             transcribed_text = result["text"].strip()
 
             if transcribed_text:
-                logger.info(f"📝 Transcribed: '{transcribed_text}'")
+                logger.info(f"📝 Transcribed (Whisper): '{transcribed_text}'")
                 return transcribed_text
             else:
-                logger.warning("⚠️ No speech detected in audio")
+                logger.warning("⚠️ No speech detected in audio (Whisper)")
                 return None
 
         except Exception as e:
@@ -484,7 +567,10 @@ class SpeechToText:
 
 def create_speech_engine(model_name: str = "turbo", language: str = "en",
                         sample_rate: int = 16000, device_index: Optional[int] = None,
-                        energy_threshold: int = 300) -> SpeechToText:
+                        energy_threshold: int = 300, provider: str = "whisper",
+                        openai_api_key: Optional[str] = None,
+                        openai_api_base: Optional[str] = None,
+                        openai_model: Optional[str] = None) -> SpeechToText:
     """
     Factory function to create a SpeechToText instance.
 
@@ -503,5 +589,9 @@ def create_speech_engine(model_name: str = "turbo", language: str = "en",
         language=language,
         sample_rate=sample_rate,
         device_index=device_index,
-        energy_threshold=energy_threshold
+        energy_threshold=energy_threshold,
+        provider=provider,
+        openai_api_key=openai_api_key,
+        openai_api_base=openai_api_base,
+        openai_model=openai_model
     )
