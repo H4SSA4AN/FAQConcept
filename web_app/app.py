@@ -164,10 +164,6 @@ def index():
     """Serve the main web page."""
     return render_template('index.html', default_provider=settings.speech.provider)
 
-@app.route('/test')
-def test_page():
-    """Serve the audio test page."""
-    return render_template('test.html')
 
 @app.route('/videos/<path:filename>')
 def serve_video(filename):
@@ -308,7 +304,7 @@ def process_audio():
             log_answered_question(
                 user_question=transcribed_text,
                 matched_question=top_q,
-                accuracy_score=top_score,
+                accuracy_score=(top_conf / 100.0),
                 csv_path=str(project_root / "data" / "answered_questions.csv")
             )
             return jsonify({
@@ -330,6 +326,11 @@ def process_audio():
             c['confidence'] = round(((1.0 / (1.0 + math.exp(-c_score))) * 100.0), 2)
 
         if 30.0 <= top_conf <= 60.0:
+            # Log unanswered question (low confidence suggest mode)
+            try:
+                save_unanswered_question(transcribed_text, source="voice")
+            except Exception:
+                pass
             return jsonify({
                 'transcription': transcribed_text,
                 'mode': 'suggest',
@@ -339,6 +340,11 @@ def process_audio():
                 'video_url': '/videos/audio_noAns.mp4'
             })
         else:
+            # Log unanswered question (very low confidence)
+            try:
+                save_unanswered_question(transcribed_text, source="voice")
+            except Exception:
+                pass
             return jsonify({
                 'transcription': transcribed_text,
                 'mode': 'suggest',
@@ -414,7 +420,7 @@ def search_text():
             log_answered_question(
                 user_question=query,
                 matched_question=top_q,
-                accuracy_score=top_score,
+                accuracy_score=(top_conf / 100.0),
                 csv_path=str(project_root / "data" / "answered_questions.csv")
             )
             return jsonify({
@@ -434,6 +440,11 @@ def search_text():
             c['confidence'] = round(((1.0 / (1.0 + math.exp(-c_score))) * 100.0), 2)
 
         if 30.0 <= top_conf <= 60.0:
+            # Log unanswered question (low confidence suggest mode)
+            try:
+                save_unanswered_question(query, source="text")
+            except Exception:
+                pass
             return jsonify({
                 'query': query,
                 'mode': 'suggest',
@@ -441,6 +452,11 @@ def search_text():
                 'video_url': '/videos/audio_noAns.mp4'
             })
         else:
+            # Log unanswered question (very low confidence)
+            try:
+                save_unanswered_question(query, source="text")
+            except Exception:
+                pass
             return jsonify({
                 'query': query,
                 'mode': 'suggest',

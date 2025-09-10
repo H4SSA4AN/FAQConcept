@@ -1018,6 +1018,42 @@
                     switchToIdleVideo();
                 }
                 return;
+            } else if (result.mode === 'suggest') {
+                // No candidates: show friendly fallback text instead of 'undefined'
+                const botResult = {
+                    question: 'No close match found',
+                    answer: "I'm sorry, I can't answer that question.",
+                    confidence: undefined,
+                    elapsed_ms: result.elapsed_ms
+                };
+                addMessageToConversation(userMessage, botResult);
+                // Handle optional no-answer video
+                const idleVideo = document.getElementById('idle-video');
+                const answerVideo = document.getElementById('answer-video-bg');
+                const answerSource = answerVideo.querySelector('source');
+                if (result.video_url) {
+                    answerVideo.onloadeddata = null;
+                    answerVideo.onerror = null;
+                    answerVideo.oncanplay = null;
+                    answerVideo.onended = null;
+
+                    answerSource.src = result.video_url;
+                    answerVideo.load();
+                    answerVideo.oncanplay = function() {
+                        idleVideo.style.opacity = '0';
+                        answerVideo.style.display = 'block';
+                        answerVideo.style.opacity = '1';
+                        answerVideo.play();
+                        setTimeout(() => {
+                            idleVideo.style.display = 'none';
+                            idleVideo.style.opacity = '1';
+                        }, 300);
+                    };
+                    answerVideo.onended = function() { switchToIdleVideo(); };
+                } else {
+                    switchToIdleVideo();
+                }
+                return;
             } else {
                 const botResult = {
                     question: result.question,

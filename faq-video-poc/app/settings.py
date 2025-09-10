@@ -32,20 +32,9 @@ class EmbeddingConfig:
 class DataConfig:
     """Data and file paths configuration."""
     faq_data_path: str = "data/faq.csv"
-    demo_questions_path: str = "scripts/demo_questions.txt"
 
 
-@dataclass
-class WebRTCConfig:
-    """WebRTC streaming configuration."""
-    ice_servers: list = None
-    video_width: int = 640
-    video_height: int = 480
-    video_fps: int = 30
-
-    def __post_init__(self):
-        if self.ice_servers is None:
-            self.ice_servers = ["stun:stun.l.google.com:19302"]
+# Note: WebRTC is not used in the current web app; removed redundant config
 
 
 @dataclass
@@ -99,16 +88,10 @@ class Settings:
         )
 
         self.data = DataConfig(
-            faq_data_path=os.getenv("FAQ_DATA_PATH", "data/faq.csv"),
-            demo_questions_path=os.getenv("DEMO_QUESTIONS_PATH", "scripts/demo_questions.txt")
+            faq_data_path=os.getenv("FAQ_DATA_PATH", "data/faq.csv")
         )
 
-        self.webrtc = WebRTCConfig(
-            ice_servers=os.getenv("WEBRTC_ICE_SERVERS", "stun:stun.l.google.com:19302").split(","),
-            video_width=int(os.getenv("VIDEO_WIDTH", "640")),
-            video_height=int(os.getenv("VIDEO_HEIGHT", "480")),
-            video_fps=int(os.getenv("VIDEO_FPS", "30"))
-        )
+        # WebRTC configuration removed (unused)
 
         self.speech = SpeechConfig(
             provider=os.getenv("SPEECH_PROVIDER", "openai" if os.getenv("OPENAI_API_KEY") else "whisper"),
@@ -155,8 +138,8 @@ class Settings:
 
     @property
     def demo_questions_path(self) -> Path:
-        """Get the full path to demo questions file."""
-        return self.project_root / self.data.demo_questions_path
+        """Deprecated: demo questions path removed."""
+        return self.project_root
 
 
 # Global settings instance

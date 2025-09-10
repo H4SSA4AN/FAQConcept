@@ -1,9 +1,0 @@
-[
-  {"query": "Okay, what is the placement?", "expect_id": 1},
-  {"query": "What is the Placement Year option?", "expect_id": 1},
-  {"query": "Where can I find placements?", "expect_id": 9},
-  {"query": "How long is the placement year?", "expect_id": 7},
-  {"query": "Do placements pay?", "expect_id": 2}
-]
-
-
