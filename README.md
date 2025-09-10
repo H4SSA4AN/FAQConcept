@@ -19,4 +19,5 @@
    python scripts/seed_chroma.py
    cd ..
    cd web_app
+   set OPENAI_API_KEY=... # Set open AI key for the GPT API transcription
    python start.py
