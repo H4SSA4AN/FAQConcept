@@ -2,29 +2,29 @@
 
 A web-based voice FAQ assistant that transcribes speech, searches for relevant answers, and plays corresponding videos.
 
-## 🐛 Recent Fix (Audio Format Issue)
+## Recent Fix (Audio Format Issue)
 
 **Fixed**: Audio recording from browser now works correctly. The issue was that browsers record audio in WebM format, but the backend expected WAV format. The fix includes:
 
-- ✅ Automatic audio format detection and conversion
-- ✅ Support for WebM, MP4, and WAV audio formats
-- ✅ Proper MIME type handling in JavaScript
-- ✅ Robust error handling for audio processing
+- Automatic audio format detection and conversion
+- Support for WebM, MP4, and WAV audio formats
+- Proper MIME type handling in JavaScript
+- Robust error handling for audio processing
 
 ## Features
 
-- 🎬 **Dual Video System**: Two video layers prevent white flash during transitions
-- 🎬 **Idle Video Loop**: IdleVideo.mp4 plays continuously in background (muted, looping)
-- 🎬 **Answer Videos**: Full-screen answer videos with smooth fade transitions (unmuted)
-- 🎤 **Voice Input**: Record audio directly from your browser's microphone
-- 🔍 **Smart Search**: Uses AI-powered FAQ search with similarity matching
-- 📱 **Responsive Design**: Optimized for desktop and mobile devices
-- 💬 **Collapsible Chat**: Show/hide answer interface with "Show Chat" button
-- 📝 **Text Mode**: Alternative text input for manual typing
-- ⚡ **Instant Loading**: Videos load in background before switching
-- 🌊 **Smooth Transitions**: 0.3s fade effects between videos
-- 🔄 **Auto Transitions**: Seamlessly switches between idle and answer videos
-- 💯 **Confidence Scores**: Shows how well the answer matches your question
+- Dual Video System: Two video layers prevent white flash during transitions
+- Idle Video Loop: IdleVideo.mp4 plays continuously in background (muted, looping)
+- Answer Videos: Full-screen answer videos with smooth fade transitions (unmuted)
+- Voice Input: Record audio directly from your browser's microphone
+- Smart Search: Uses AI-powered FAQ search with similarity matching
+- Responsive Design: Optimized for desktop and mobile devices
+- Collapsible Chat: Show/hide answer interface with "Show Chat" button
+- Text Mode: Alternative text input for manual typing
+- Instant Loading: Videos load in background before switching
+- Smooth Transitions: 0.3s fade effects between videos
+- Auto Transitions: Seamlessly switches between idle and answer videos
+- Confidence Scores: Shows how well the answer matches your question
 
 ## Prerequisites
 
@@ -135,9 +135,9 @@ Open your browser's developer console (F12) to see detailed error messages and d
 
 ## Browser Compatibility
 
-- ✅ Chrome (recommended)
-- ✅ Firefox
-- ✅ Safari
-- ✅ Edge
+- Chrome (recommended)
+- Firefox
+- Safari
+- Edge
 
 **Important**: Allow microphone access when prompted by your browser.

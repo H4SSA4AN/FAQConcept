@@ -290,9 +290,9 @@ def log_answered_question(user_question: str, matched_question: str, accuracy_sc
             # Write the answered question
             writer.writerow(data)
 
-        logger.info(f"✅ Logged answered question: '{user_question}' -> '{matched_question}' (score: {accuracy_score:.4f})")
+        logger.info(f"Logged answered question: '{user_question}' -> '{matched_question}' (score: {accuracy_score:.4f})")
         return True
 
     except Exception as e:
-        logger.error(f"❌ Failed to log answered question: {e}")
+        logger.error(f"Failed to log answered question: {e}")
         return False

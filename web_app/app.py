@@ -25,7 +25,7 @@ try:
     from app.retrieval import answer as retrieve_answer
     from app.utils import log_answered_question
 except ImportError as e:
-    print(f"❌ Failed to import required modules: {e}")
+    print(f"Failed to import required modules: {e}")
     print("Make sure you're running this from the web_app directory.")
     sys.exit(1)
 
@@ -43,7 +43,7 @@ def initialize_components():
     try:
         print("Initializing FAQ search engine...")
         faq_search = FAQSearch(use_chroma=True)
-        print("✅ FAQ search engine initialized successfully!")
+        print("FAQ search engine initialized successfully!")
     except Exception as e:
         print(f"❌ Failed to initialize FAQ search engine: {e}")
         return False
@@ -52,7 +52,7 @@ def initialize_components():
     try:
         default_provider = settings.speech.provider
         if default_provider == 'whisper':
-            print("🎤 Preloading Whisper speech-to-text engine (default provider)...")
+            print("Preloading Whisper speech-to-text engine (default provider)...")
             speech_engine_whisper = SpeechToText(
                 model_name=settings.speech.model_name,
                 language=settings.speech.language,
@@ -61,11 +61,11 @@ def initialize_components():
                 energy_threshold=settings.speech.energy_threshold,
                 provider='whisper'
             )
-            print("✅ Whisper engine loaded")
+            print("Whisper engine loaded")
         else:
-            print("🎤 Using OpenAI as default provider; engines will be loaded on demand")
+            print("Using OpenAI as default provider; engines will be loaded on demand")
     except Exception as e:
-        print(f"❌ Failed to prepare speech engines: {e}")
+        print(f"Failed to prepare speech engines: {e}")
         return False
 
     return True
@@ -78,7 +78,7 @@ def get_speech_engine(provider: str):
     provider = provider.lower()
     if provider == 'whisper':
         if speech_engine_whisper is None:
-            print("🎤 Loading Whisper engine (on demand)...")
+            print("Loading Whisper engine (on demand)...")
             speech_engine_whisper = SpeechToText(
                 model_name=settings.speech.model_name,
                 language=settings.speech.language,
@@ -87,14 +87,14 @@ def get_speech_engine(provider: str):
                 energy_threshold=settings.speech.energy_threshold,
                 provider='whisper'
             )
-            print("✅ Whisper engine loaded")
+            print("Whisper engine loaded")
         return speech_engine_whisper
 
     if provider == 'openai':
         if not settings.speech.openai_api_key:
             raise RuntimeError('OPENAI_API_KEY not set on server')
         if speech_engine_openai is None:
-            print("🎤 Initializing OpenAI STT client (on demand)...")
+            print("Initializing OpenAI STT client (on demand)...")
             speech_engine_openai = SpeechToText(
                 model_name=settings.speech.model_name,
                 language=settings.speech.language,
@@ -106,7 +106,7 @@ def get_speech_engine(provider: str):
                 openai_api_base=settings.speech.openai_api_base,
                 openai_model=settings.speech.openai_model
             )
-            print("✅ OpenAI STT ready")
+            print("OpenAI STT ready")
         return speech_engine_openai
 
     raise ValueError(f"Unknown provider: {provider}")
@@ -138,9 +138,9 @@ def save_unanswered_question(question, source="voice"):
                 'source': source
             })
 
-        print(f"📝 Saved unanswered question: '{question}'")
+        print(f"Saved unanswered question: '{question}'")
     except Exception as e:
-        print(f"❌ Error saving unanswered question: {e}")
+        print(f"Error saving unanswered question: {e}")
 
 def find_video_url_for_question(question_text: str):
     """Find video URL for an exact question match from faq.csv."""
@@ -201,13 +201,13 @@ def process_audio():
         import scipy.io.wavfile as wav
         import numpy as np
 
-        print(f"🎤 Processing audio file (format: {audio_format})...")
+        print(f"Processing audio file (format: {audio_format})...")
 
         # Convert to WAV if not already in WAV format
         if audio_format != 'wav':
             try:
                 from pydub import AudioSegment
-                print(f"📁 Converting {audio_format} to WAV...")
+                print(f"Converting {audio_format} to WAV...")
 
                 # Load audio file with pydub
                 audio = AudioSegment.from_file(temp_audio_path, format=audio_format)
@@ -216,9 +216,9 @@ def process_audio():
                 converted_file_path = temp_audio_path + '_converted.wav'
                 audio.export(converted_file_path, format="wav")
                 temp_audio_path = converted_file_path
-                print("✅ Audio conversion completed")
+                print("Audio conversion completed")
             except ImportError as e:
-                print(f"⚠️  Pydub not available: {e}")
+                print(f"Pydub not available: {e}")
                 # Try alternative approach without pydub
                 try:
                     import subprocess
@@ -232,17 +232,17 @@ def process_audio():
 
                     if result.returncode == 0:
                         temp_audio_path = converted_file_path
-                        print("✅ Audio conversion completed (using ffmpeg)")
+                        print("Audio conversion completed (using ffmpeg)")
                     else:
                         return jsonify({'error': 'Audio conversion failed. Please install pydub or ffmpeg.'}), 500
                 except (subprocess.TimeoutExpired, FileNotFoundError, subprocess.SubprocessError) as e:
-                    print(f"⚠️  FFmpeg conversion failed: {e}")
+                    print(f"FFmpeg conversion failed: {e}")
                     return jsonify({'error': 'Audio processing requires pydub or ffmpeg. Please install dependencies.'}), 500
             except Exception as e:
-                print(f"⚠️  Audio conversion failed: {e}")
+                print(f"Audio conversion failed: {e}")
                 return jsonify({'error': f'Failed to convert audio: {str(e)}'}), 400
 
-        print("🎤 Loading audio file...")
+        print("Loading audio file...")
         sample_rate, audio_data = wav.read(temp_audio_path)
 
         # Convert to mono if stereo
@@ -250,13 +250,13 @@ def process_audio():
             audio_data = audio_data.mean(axis=1)
 
         # Transcribe audio to text using selected provider (cached engine)
-        print(f"🎤 Transcribing audio using provider: {provider}...")
+        print(f"Transcribing audio using provider: {provider}...")
         try:
             engine = get_speech_engine(provider)
         except RuntimeError as key_err:
             return jsonify({'error': str(key_err), 'provider': provider}), 400
         except Exception as engine_err:
-            print(f"❌ Failed to get speech engine: {engine_err}")
+            print(f"Failed to get speech engine: {engine_err}")
             return jsonify({'error': f'Failed to initialize STT engine: {engine_err}', 'provider': provider}), 500
 
         transcribed_text = engine.transcribe_audio(audio_data.astype(np.float32))
@@ -264,10 +264,10 @@ def process_audio():
         if not transcribed_text:
             return jsonify({'error': 'Could not transcribe audio'}), 400
 
-        print(f"📝 Transcribed: '{transcribed_text}'")
+        print(f"Transcribed: '{transcribed_text}'")
 
         # Retrieve with cross-encoder rerank
-        print("🔍 Retrieving answers...")
+        print("Retrieving answers...")
         ret = retrieve_answer(transcribed_text, k=10)
         elapsed_ms = int((time.perf_counter() - start_time) * 1000)
 
@@ -356,7 +356,7 @@ def process_audio():
             })
 
     except Exception as e:
-        print(f"❌ Error processing audio: {e}")
+        print(f"Error processing audio: {e}")
         return jsonify({'error': f'Processing failed: {str(e)}'}), 500
 
     finally:
@@ -385,7 +385,7 @@ def search_text():
 
     try:
         # Retrieve with cross-encoder rerank
-        print(f"🔍 Retrieving for: '{query}'")
+        print(f"Retrieving for: '{query}'")
         ret = retrieve_answer(query, k=10)
 
         # Derive top candidate and confidence regardless of original mode
@@ -466,7 +466,7 @@ def search_text():
             })
 
     except Exception as e:
-        print(f"❌ Error processing query: {e}")
+        print(f"Error processing query: {e}")
         return jsonify({'error': f'Search failed: {str(e)}'}), 500
 
 @app.route('/api/health', methods=['GET'])
@@ -484,10 +484,10 @@ if __name__ == '__main__':
 
     if not app.debug or is_reloader_child:
         if not initialize_components():
-            print("❌ Failed to initialize components. Exiting.")
+            print("Failed to initialize components. Exiting.")
             sys.exit(1)
 
-        print("🚀 Starting Flask web application...")
-        print("🌐 Open your browser and go to: http://localhost:5000")
+        print("Starting Flask web application...")
+        print("Open your browser and go to: http://localhost:5000")
 
     app.run(debug=True, host='0.0.0.0', port=5000)

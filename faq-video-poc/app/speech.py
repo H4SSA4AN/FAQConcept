@@ -102,7 +102,7 @@ class SpeechToText:
             wav.write(buffer, self.sample_rate, (audio_float32 * 32767).astype(np.int16))
             buffer.seek(0)
 
-            logger.info("🎯 Transcribing audio with OpenAI API...")
+            logger.info("Transcribing audio with OpenAI API...")
 
             # Prefer new models like gpt-4o-transcribe; fallback to whisper-1 if configured
             model_name = self.openai_model or "gpt-4o-transcribe"
@@ -133,14 +133,14 @@ class SpeechToText:
 
             if text:
                 text = text.strip()
-                logger.info(f"📝 Transcribed (OpenAI): '{text}'")
+                logger.info(f"Transcribed (OpenAI): '{text}'")
                 return text
 
-            logger.warning("⚠️ No speech detected in audio (OpenAI)")
+            logger.warning("No speech detected in audio (OpenAI)")
             return None
 
         except Exception as e:
-            logger.error(f"❌ OpenAI transcription failed: {e}")
+            logger.error(f"OpenAI transcription failed: {e}")
             return None
 
     def list_audio_devices(self) -> List[str]:
@@ -214,7 +214,7 @@ class SpeechToText:
         """
         try:
             self._is_recording = True
-            logger.info("🎤 Starting voice activity detection...")
+            logger.info("Starting voice activity detection...")
 
             # Calculate buffer sizes
             chunk_samples = int(self.sample_rate * chunk_duration)
@@ -267,7 +267,7 @@ class SpeechToText:
                 # Check if we should start recording
                 if not recording_started and self._is_speech_detected(
                     energy, adaptive_threshold, consecutive_speech_frames):
-                    logger.info("🎙️ Speech detected! Starting recording...")
+                    logger.info("Speech detected! Starting recording...")
                     recording_started = True
                     # Include pre-roll audio
                     recorded_audio.extend(audio_buffer[:-1])  # Exclude current chunk (already added below)
@@ -295,7 +295,7 @@ class SpeechToText:
                               callback=audio_callback,
                               blocksize=chunk_samples):
 
-                logger.info("👂 Listening for speech... (say something)")
+                logger.info("Listening for speech... (say something)")
 
                 while self._is_recording:
                     time.sleep(0.05)  # Small delay to prevent busy waiting
@@ -303,7 +303,7 @@ class SpeechToText:
 
                     # Check timeout
                     if elapsed_time >= max_duration:
-                        logger.info(f"⏰ Maximum recording time reached ({max_duration}s)")
+                        logger.info(f"Maximum recording time reached ({max_duration}s)")
                         break
 
                     # Check if we should stop recording due to silence
@@ -312,7 +312,7 @@ class SpeechToText:
                                                 self._calculate_adaptive_threshold(energy_history),
                                                 consecutive_silence_frames,
                                                 silence_frames_needed)):
-                        logger.info("🤫 Silence detected, stopping recording")
+                        logger.info("Silence detected, stopping recording")
                         break
 
                 self._is_recording = False
@@ -324,17 +324,17 @@ class SpeechToText:
 
                 # Check minimum recording duration
                 if recording_duration < min_recording_duration:
-                    logger.warning(f"⚠️ Recording too short ({recording_duration:.1f}s < {min_recording_duration}s)")
+                    logger.warning(f"Recording too short ({recording_duration:.1f}s < {min_recording_duration}s)")
                     return None
 
-                logger.info(f"✅ Recording complete. Duration: {recording_duration:.1f}s")
+                logger.info(f"Recording complete. Duration: {recording_duration:.1f}s")
                 return audio_data
             else:
-                logger.warning("⚠️ No speech detected")
+                logger.warning("No speech detected")
                 return None
 
         except Exception as e:
-            logger.error(f"❌ Recording failed: {e}")
+            logger.error(f"Recording failed: {e}")
             return None
         finally:
             self._is_recording = False
@@ -365,7 +365,7 @@ class SpeechToText:
             if audio_float32.max() > 1.0 or audio_float32.min() < -1.0:
                 audio_float32 = audio_float32 / np.max(np.abs(audio_float32))
 
-            logger.info("🎯 Transcribing audio with Whisper...")
+            logger.info("Transcribing audio with Whisper...")
 
             result = self.model.transcribe(
                 audio_float32,
@@ -377,14 +377,14 @@ class SpeechToText:
             transcribed_text = result["text"].strip()
 
             if transcribed_text:
-                logger.info(f"📝 Transcribed (Whisper): '{transcribed_text}'")
+                logger.info(f"Transcribed (Whisper): '{transcribed_text}'")
                 return transcribed_text
             else:
-                logger.warning("⚠️ No speech detected in audio (Whisper)")
+                logger.warning("No speech detected in audio (Whisper)")
                 return None
 
         except Exception as e:
-            logger.error(f"❌ Transcription failed: {e}")
+            logger.error(f"Transcription failed: {e}")
             return None
 
     def save_audio_to_file(self, audio_data: np.ndarray, filename: str) -> bool:
@@ -403,10 +403,10 @@ class SpeechToText:
             audio_int16 = (audio_data * 32767).astype(np.int16)
 
             wav.write(filename, self.sample_rate, audio_int16)
-            logger.info(f"💾 Audio saved to: {filename}")
+            logger.info(f"Audio saved to: {filename}")
             return True
         except Exception as e:
-            logger.error(f"❌ Failed to save audio: {e}")
+            logger.error(f"Failed to save audio: {e}")
             return False
 
     def listen_and_transcribe(self, max_duration: int = 30, silence_threshold: float = 0.8,
@@ -447,7 +447,7 @@ class SpeechToText:
     def stop_recording(self):
         """Stop the current recording."""
         self._is_recording = False
-        logger.info("🛑 Recording stopped")
+        logger.info("Recording stopped")
 
     def record_audio_manual(self, max_duration: int = 30, chunk_duration: float = 0.1,
                            callback: Optional[Callable] = None) -> Optional[np.ndarray]:
@@ -466,11 +466,11 @@ class SpeechToText:
             # Calculate buffer size
             chunk_samples = int(self.sample_rate * chunk_duration)
 
-            logger.info("🔴 Press Enter to START recording...")
+            logger.info("Press Enter to START recording...")
             input()  # Wait for Enter to start
 
             self._is_recording = True
-            logger.info("🎤 Recording started! Press Enter to STOP...")
+            logger.info("Recording started! Press Enter to STOP...")
 
             recorded_audio = []
             start_time = time.time()
@@ -513,26 +513,26 @@ class SpeechToText:
 
                     # Check timeout
                     if elapsed_time >= max_duration:
-                        logger.info(f"⏰ Maximum recording time reached ({max_duration}s)")
+                        logger.info(f"Maximum recording time reached ({max_duration}s)")
                         break
 
                 self._is_recording = False
-                logger.info("🛑 Recording stopped by user")
+                logger.info("Recording stopped by user")
 
             # Combine recorded chunks
             if recorded_audio:
                 audio_data = np.concatenate(recorded_audio, axis=0).flatten()
-                logger.info(f"✅ Recording complete. Duration: {len(audio_data)/self.sample_rate:.1f}s")
+                logger.info(f"Recording complete. Duration: {len(audio_data)/self.sample_rate:.1f}s")
                 return audio_data
             else:
-                logger.warning("⚠️ No audio recorded")
+                logger.warning("No audio recorded")
                 return None
 
         except KeyboardInterrupt:
-            logger.info("🛑 Recording interrupted by user")
+            logger.info("Recording interrupted by user")
             return None
         except Exception as e:
-            logger.error(f"❌ Recording failed: {e}")
+            logger.error(f"Recording failed: {e}")
             return None
         finally:
             self._is_recording = False

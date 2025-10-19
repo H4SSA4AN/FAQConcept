@@ -6,8 +6,8 @@ A proof-of-concept application for FAQ search and retrieval using vector databas
 
 - Vector-based FAQ search using Chroma
 - Text embeddings for semantic search
-- **🤖 Advanced Speech-to-text with Whisper v3 Turbo** (default mode!)
-- **🎤 Voice Activity Detection** - completely hands-free operation
+- Advanced Speech-to-text with Whisper v3 Turbo (default mode!)
+- Voice Activity Detection - completely hands-free operation
 - CLI interface for easy interaction
 - Real-time video streaming capabilities
 - Continuous conversation loop with voice commands
@@ -73,14 +73,14 @@ python interactive_faq.py --text
 ```
 
 In speech mode:
-- **🎤 Default Mode** - No flags needed, just run the script!
-- **🤖 Advanced AI-powered Voice Activity Detection** - completely hands-free!
-- **👂 Automatic speech detection** - starts recording when you speak (no button pressing!)
-- **⏹️  Smart silence detection** - stops recording automatically when you finish
-- **🎙️  Pre-roll audio capture** - includes the beginning of your speech
-- **🔄 Continuous conversation loop** - runs until Ctrl+C or you say "stop"
-- **🗣️  Voice commands** - say "quit", "exit", or "stop" to end the session
-- **💡 Natural interaction** - speak as you normally would in conversation
+- Default Mode - No flags needed, just run the script!
+- Advanced AI-powered Voice Activity Detection - completely hands-free!
+- Automatic speech detection - starts recording when you speak (no button pressing!)
+- Smart silence detection - stops recording automatically when you finish
+- Pre-roll audio capture - includes the beginning of your speech
+- Continuous conversation loop - runs until Ctrl+C or you say "stop"
+- Voice commands - say "quit", "exit", or "stop" to end the session
+- Natural interaction - speak as you normally would in conversation
 
 #### Manual Recording Mode
 

@@ -28,9 +28,9 @@ def main():
                 print(f"Cleaning Chroma persist dir: {persist_path}")
                 shutil.rmtree(persist_path, ignore_errors=True)
             persist_path.mkdir(parents=True, exist_ok=True)
-            print("✓ Reset Chroma persist directory")
+            print("Reset Chroma persist directory")
         except Exception as e:
-            print(f"⚠️  Warning: Failed to fully reset persist dir: {e}")
+            print(f"Warning: Failed to fully reset persist dir: {e}")
 
         # Load and validate FAQ data
         csv_path = settings.faq_data_path
@@ -55,7 +55,7 @@ def main():
 
         # Get collection info
         info = indexer.get_collection_info()
-        print("✓ Successfully seeded Chroma database!")
+        print("Successfully seeded Chroma database!")
         print(f"  Collection: {info['name']}")
         print(f"  Documents: {info['count']}")
         print(f"  Embedding Dimension: {info['embedding_dimension']}")
