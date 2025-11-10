@@ -19,3 +19,4 @@ timestamp,user_question,matched_question,accuracy_score
 2025-09-10T12:19:23.000622,who can review my application?,Can I have an appointment to check over my applications?,0.9882
 2025-09-10T12:27:43.938457,How do I switch to a placement year?,How can I add or remove a placement year from my route?,0.9527
 2025-09-10T12:32:00.132240,What happens if I can't find a placement?,"If you don't manage to find a placement, what are the steps to take from there? Do you go straight into your final year, or can you find an internship or something like that?",0.987
+2025-11-04T19:35:21.710085,What is the placement year at Loughborough?,What is the Placement Year option at Loughborough University?,1.0
